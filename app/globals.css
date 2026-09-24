@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { background-color: #FFFDF5; }
+input, textarea { outline: none; }
+input:focus, textarea:focus { border-color: #f59e0b; }
