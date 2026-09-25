@@ -2,15 +2,27 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useLang } from "./components/SiteChrome";
+
 type Review = { id: string; customer_name: string; rating: number; review: string };
 type SizeOpt = { kg: number; price: number };
 type Prod = { id: string; img: string; nameHi: string; nameEn: string; sizes: SizeOpt[] };
-const PRODUCTS: Prod[] = [
+
+const BASE_PRODUCTS: Prod[] = [
   { id: "mustard", img: "/products/mustard.webp", nameHi: "सरसों का तेल", nameEn: "Mustard Oil", sizes: [{ kg: 1, price: 199 }, { kg: 2, price: 379 }, { kg: 5, price: 899 }] },
   { id: "sesame", img: "/products/sesame.webp", nameHi: "तिल का तेल", nameEn: "Sesame Oil", sizes: [{ kg: 1, price: 259 }, { kg: 2, price: 479 }, { kg: 5, price: 1099 }] },
   { id: "gud", img: "/products/gud.webp", nameHi: "तिल गुड़ की कच्चर", nameEn: "Sesame Jaggery Chikki", sizes: [{ kg: 1, price: 299 }, { kg: 2, price: 549 }] },
   { id: "cheeni", img: "/products/cheeni.webp", nameHi: "तिल चीनी की कच्चर", nameEn: "Sesame Sugar Chikki", sizes: [{ kg: 1, price: 279 }, { kg: 2, price: 519 }] },
 ];
+
+const NORM = (t: string) => {
+  const s = (t || "").toLowerCase().trim();
+  if (["mustard", "sarso", "sarson", "peanut"].includes(s)) return "mustard";
+  if (["sesame", "til"].includes(s)) return "sesame";
+  if (["gud", "til_gud", "til-gud"].includes(s)) return "gud";
+  if (["cheeni", "chini", "til_cheeni", "til-cheeni"].includes(s)) return "cheeni";
+  return s;
+};
+
 function ProductCard({ p }: { p: Prod }) {
   const { lang } = useLang();
   const [sel, setSel] = useState(0);
@@ -30,66 +42,102 @@ function ProductCard({ p }: { p: Prod }) {
       <h3 className="font-bold text-sm">{lang === "hi" ? p.nameHi : p.nameEn}</h3>
       <div className="flex gap-1 mt-1.5 flex-wrap">
         {p.sizes.map((s, i) => (
-          <button key={s.kg} onClick={() => setSel(i)} className={"text-[11px] px-2 py-0.5 rounded-full border font-semibold " + (i === sel ? "bg-orange-500 text-white border-orange-500" : "border-amber-300 text-amber-700")}>{s.kg}kg</button>
+          <button key={s.kg} onClick={() => setSel(i)} className={"text-[11px] px-2 py-0.5 rounded-full border font-semibold " + (i === sel ? "bg-orange-500 text-white border-orange-500" : "border-amber-300 text-amber-700")}>
+            {s.kg}kg
+          </button>
         ))}
       </div>
-      <p className="mt-1.5 text-lg font-bold text-green-700">₹{size.price}</p>
+      <p className="mt-1.5 text-lg font-bold text-green-700">Rs. {size.price}</p>
       <button onClick={addToCart} className="mt-2 w-full text-sm bg-orange-500 text-white rounded-xl py-2 font-bold">Add</button>
     </div>
   );
 }
+
 export default function Home() {
   const { lang } = useLang();
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [products, setProducts] = useState<Prod[]>(BASE_PRODUCTS);
+
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("feedback").select("*").eq("is_public", true).order("created_at", { ascending: false }).limit(10);
-      if (data) setReviews(data);
-    })();
+    const load = async () => {
+      const { data: fb } = await supabase.from("feedback").select("*").eq("is_public", true).order("created_at", { ascending: false }).limit(10);
+      if (fb) setReviews(fb as any);
+      const { data: db } = await supabase.from("products").select("id, oil_type, pack_size_kg, price, is_active").eq("is_active", true);
+      if (db && db.length > 0) {
+        setProducts((prev) =>
+          prev.map((base) => {
+            const newSizes = base.sizes.map((sz) => {
+              const match = (db as any[]).find((d: any) => NORM(d.oil_type) === base.id && Number(d.pack_size_kg) === sz.kg);
+              if (match) return { ...sz, price: Number(match.price) };
+              return sz;
+            });
+            return { ...base, sizes: newSizes };
+          })
+        );
+      }
+    };
+    load();
+    const ch = supabase.channel("admin-price-live").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => load()).subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, []);
-  const FAYDE = lang === "hi"
-    ? [{ icon: "❤️", title: "100% शुद्ध & प्राकृतिक", sub: "कोई प्रिजर्वेटिव नहीं • कोल्ड प्रेस्ड" }, { icon: "\uD83C\uDF3F", title: "ओमेगा-3 से भरपूर", sub: "दिल व इम्यूनिटी के लिए अच्छा" }]
-    : [{ icon: "❤️", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "\uD83C\uDF3F", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
+
   return (
     <div className="px-4 py-4 space-y-5">
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white flex items-center gap-4 shadow">
         <div className="flex-1">
           <h2 className="text-xl font-bold leading-snug">{lang === "hi" ? "शुद्ध कच्ची घानी तेल - भाटी प्रोडक्ट्स" : "Pure Kachchi Ghani Oil - Bhati Products"}</h2>
           <p className="text-xs mt-1 opacity-95">{lang === "hi" ? "बिना केमिकल, कोल्हू में पिसाई | जोधपुर रोड, भोपालगढ़" : "No chemicals, traditionally pressed | Jodhpur Road, Bhopalgarh"}</p>
-          </div>
+          <p className="text-[10px] mt-1 opacity-80">Aashirwad Kachchar - Bhati Products</p>
+        </div>
         <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
       </div>
+
       <div>
         <h2 className="text-base font-bold mb-2">{lang === "hi" ? "तेल के फायदे" : "Oil Benefits"}</h2>
         <div className="grid grid-cols-2 gap-3">
-          {FAYDE.map((b) => (
-            <div key={b.title} className="bg-white rounded-2xl p-4 shadow border border-amber-100">
-              <div className="text-3xl mb-1">{b.icon}</div>
-              <h3 className="font-bold text-sm">{b.title}</h3>
-              <p className="text-[11px] text-gray-500 mt-0.5">{b.sub}</p>
-            </div>
+          <div className="bg-white rounded-2xl p-4 shadow border border-amber-100">
+            <div className="text-2xl mb-1">100%</div>
+            <h3 className="font-bold text-sm">{lang === "hi" ? "शुद्ध और प्राकृतिक" : "Pure and Natural"}</h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">{lang === "hi" ? "कोई प्रिजर्वेटिव नहीं - कोल्ड प्रेस्ड" : "No preservatives - Cold pressed"}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow border border-amber-100">
+            <div className="text-2xl mb-1">Omega-3</div>
+            <h3 className="font-bold text-sm">{lang === "hi" ? "ओमेगा-3 से भरपूर" : "Rich in Omega-3"}</h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">{lang === "hi" ? "दिल व इम्यूनिटी के लिए अच्छा" : "Good for heart and immunity"}</p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-base font-bold mb-2">Shop Products <span className="text-[10px] font-normal text-green-600">- Live</span></h2>
+        <div className="grid grid-cols-2 gap-3">
+          {products.map((p) => (
+            <ProductCard key={p.id} p={p} />
           ))}
         </div>
       </div>
-      <div>
-        <h2 className="text-base font-bold mb-2">Shop Products</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {PRODUCTS.map((p) => (<ProductCard key={p.id} p={p} />))}
-        </div>
-      </div>
+
       <div>
         <h2 className="text-base font-bold mb-2">Customer Reviews</h2>
-        {reviews.length === 0 && (<p className="text-sm text-gray-500">{lang === "hi" ? "Abhi koi review nahi — pehla review aap de sakte ho!" : "No reviews yet — be the first!"}</p>)}
+        {reviews.length === 0 && <p className="text-sm text-gray-500">{lang === "hi" ? "Abhi koi review nahi - pehla review aap de sakte ho!" : "No reviews yet - be the first!"}</p>}
         <div className="space-y-2">
           {reviews.map((r) => (
             <div key={r.id} className="bg-white rounded-2xl p-3 shadow border border-amber-100">
-              <p className="text-sm font-bold">{r.customer_name}</p>
+              <p className="text-sm font-bold">{r.customer_name} <span className="text-amber-500">{"*".repeat(r.rating)}</span></p>
               <p className="text-sm text-gray-600">{r.review}</p>
             </div>
           ))}
         </div>
       </div>
-      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi" ? "शुद्ध तेल, हर घर-भाटी प्रोडक्ट्स " : "Pure Oil, Every Home-Bhati Products"}</footer>
+
+      <footer className="text-center text-xs text-gray-500 pb-6 leading-relaxed">
+        <div className="font-bold text-sm text-gray-700">Aashirwad Kachchar - Bhati Products</div>
+        <div>Pure Oil, Every Home | Pure Kachchi Ghani Oil</div>
+        <div>No chemicals, traditionally pressed</div>
+        <div className="mt-1">Jodhpur Road, Bhopalgarh</div>
+      </footer>
     </div>
   );
 }
