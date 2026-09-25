@@ -78,7 +78,8 @@ export default function Home() {
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white flex items-center gap-4 shadow">
         <div className="flex-1">
           <h2 className="text-xl font-bold leading-snug">{lang === "hi" ? "शुद्ध कच्ची घानी तेल" : "Pure Kachchi Ghani Oil"}</h2>
-          <p className="text-xs mt-1 opacity-95">{lang === "hi" ? "बिना केमिकल, कोल्हू में पिसाई" : "No chemicals, traditionally pressed"}</p>
+          <p className="text-xs mt-1 opacity-95">{lang === "hi" ? "बिना केमिकल, कोल्हू में पिसाई" : "No chemicals, traditionally pressed, "}</p>
+          <p className="text-xs mt-1 opacity-95">{lang === "hi" ? "Bhati Products, Jodpur Road, Bhopalgarh "}</p>
         </div>
         <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
       </div>
@@ -112,7 +113,7 @@ export default function Home() {
           ))}
         </div>
       </div>
-      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi" ? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
+      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi" ? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home, Bhati Products"}</footer>
     </div>
   );
 }
