@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+
+// Dashboard ke products ke sahi daam (server-side list, client isko badal nahi sakta)
+const PRICE_MAP: Record<string, number> = {
+  "mustard-1kg": 199, "mustard-2kg": 379, "mustard-5kg": 899,
+  "sesame-1kg": 259, "sesame-2kg": 479, "sesame-5kg": 1099,
+  "gud-1kg": 299, "gud-2kg": 549,
+  "cheeni-1kg": 279, "cheeni-2kg": 519,
+};
 
 export async function POST(req: Request) {
   try {
@@ -7,23 +14,13 @@ export async function POST(req: Request) {
     if (!items || !Array.isArray(items) || items.length === 0)
       return NextResponse.json({ error: "Cart khaali hai" }, { status: 400 });
 
-    // Price Supabase se verify karo (client ki bhej hui price par bharosa nahi)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const ids = items.map((i: any) => i.product_id);
-    const { data: products, error } = await supabase
-      .from("products").select("id, price").in("id", ids).eq("is_active", true);
-    if (error || !products || products.length === 0)
-      return NextResponse.json({ error: "Products nahi mile" }, { status: 400 });
-
+    // Price server-side PRICE_MAP se verify karo (client ki bhej hui price par bharosa nahi)
     let total = 0;
     for (const it of items) {
-      const p = products.find((x: any) => x.id === it.product_id);
-      if (!p) return NextResponse.json({ error: "Galat product" }, { status: 400 });
+      const price = PRICE_MAP[it.product_id];
+      if (!price) return NextResponse.json({ error: "Galat product" }, { status: 400 });
       const qty = Math.max(1, Math.min(100, parseInt(it.qty) || 1));
-      total += Number(p.price) * qty;
+      total += price * qty;
     }
     const amountPaise = Math.round(total * 100);
 
