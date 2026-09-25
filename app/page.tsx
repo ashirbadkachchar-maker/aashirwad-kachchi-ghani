@@ -56,8 +56,7 @@ export default function Home() {
         <div className="flex-1">
           <h2 className="text-xl font-bold leading-snug">{lang === "hi" ? "शुद्ध कच्ची घानी तेल - भाटी प्रोडक्ट्स" : "Pure Kachchi Ghani Oil - Bhati Products"}</h2>
           <p className="text-xs mt-1 opacity-95">{lang === "hi" ? "बिना केमिकल, कोल्हू में पिसाई | जोधपुर रोड, भोपालगढ़" : "No chemicals, traditionally pressed | Jodhpur Road, Bhopalgarh"}</p>
-          <p className="text-[10px] mt-1 opacity-80">Aashirwad Kachchar - Bhati Products</p>
-        </div>
+          </div>
         <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
       </div>
       <div>
