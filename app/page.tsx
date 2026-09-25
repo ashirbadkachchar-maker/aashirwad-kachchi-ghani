@@ -21,7 +21,7 @@ const NORM = (t: string) => {
   if (s.includes("sesame") || s.includes("til")) return "sesame";
   return s.trim();
 };
-function ProductCard({ p }: { p: Prod }) {
+function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: number } }) {
   const { lang } = useLang();
   const [sel, setSel] = useState(0);
   const size = p.sizes[sel];
@@ -34,16 +34,25 @@ function ProductCard({ p }: { p: Prod }) {
     localStorage.setItem("akg_cart", JSON.stringify(cart));
     alert(lang === "hi"? "कार्ट में जुड़ गया!" : "Added to cart!");
   };
+  const stars = rating && rating.count > 0? Math.round(rating.avg) : 0;
   return (
     <div className="bg-white rounded-2xl shadow p-3 border border-amber-100 flex flex-col">
       <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl mb-2" />
       <h3 className="font-bold text-sm">{lang === "hi"? p.nameHi : p.nameEn}</h3>
+      {stars > 0? (
+        <p className="text-xs mt-0.5">
+          <span className="text-amber-500 font-bold">{"★".repeat(stars)}{"☆".repeat(5 - stars)}</span>
+          <span className="text-gray-500"> {rating!.avg.toFixed(1)} ({rating!.count})</span>
+        </p>
+      ) : (
+        <p className="text-[11px] text-gray-400 mt-0.5">☆☆☆☆☆ {lang === "hi"? "नया" : "New"}</p>
+      )}
       <div className="flex gap-1 mt-1.5 flex-wrap">
         {p.sizes.map((s, i) => (
           <button key={s.kg} onClick={() => setSel(i)} className={"text-[11px] px-2 py-0.5 rounded-full border font-semibold " + (i === sel? "bg-orange-500 text-white border-orange-500" : "border-amber-300 text-amber-700")}>{s.kg}kg</button>
         ))}
       </div>
-      <p className="mt-1.5 text-lg font-bold text-green-700">₹{size.price}</p>
+      <p className="mt-1.5 text-lg font-bold text-green-700">₹{size.price} <span className="text-[11px] font-semibold text-gray-500">{lang === "hi"? "ऑफर प्राइस" : "Offer Price"}</span></p>
       <button onClick={addToCart} className="mt-2 w-full text-sm bg-orange-500 text-white rounded-xl py-2 font-bold">Add</button>
     </div>
   );
@@ -52,6 +61,7 @@ export default function Home() {
   const { lang } = useLang();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [products, setProducts] = useState<Prod[]>(PRODUCTS);
+  const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("feedback").select("*").eq("is_public", true).order("created_at", { ascending: false }).limit(10);
@@ -73,6 +83,25 @@ export default function Home() {
       }
     };
     loadPrices();
+    // customer reviews se har product ki average star rating
+    const loadRatings = async () => {
+      const { data: fb } = await supabase.from("feedback").select("product_id, rating").eq("is_public", true).not("product_id", "is", null);
+      const { data: prods } = await supabase.from("products").select("id, oil_type");
+      const idToBase: Record<string, string> = {};
+      (prods || []).forEach((pd: any) => { idToBase[pd.id] = NORM(String(pd.oil_type)); });
+      const agg: Record<string, { sum: number; count: number }> = {};
+      (fb || []).forEach((f: any) => {
+        const base = idToBase[f.product_id];
+        if (!base) return;
+        if (!agg[base]) agg[base] = { sum: 0, count: 0 };
+        agg[base].sum += Number(f.rating) || 0;
+        agg[base].count += 1;
+      });
+      const out: Record<string, { avg: number; count: number }> = {};
+      Object.keys(agg).forEach((k) => { out[k] = { avg: agg[k].sum / agg[k].count, count: agg[k].count }; });
+      setRatings(out);
+    };
+    loadRatings();
     const ch = supabase.channel("admin-price-live").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => loadPrices()).subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
@@ -85,7 +114,7 @@ export default function Home() {
         <div className="flex-1">
           <h2 className="text-xl font-bold leading-snug">{lang === "hi"? "शुद्ध कच्ची घानी तेल - भाटी प्रोडक्ट्स" : "Pure Kachchi Ghani Oil - Bhati Products"}</h2>
           <p className="text-xs mt-1 opacity-95">{lang === "hi"? "बिना केमिकल, कोल्हू में पिसाई | जोधपुर रोड, भोपालगढ़" : "No chemicals, traditionally pressed | Jodhpur Road, Bhopalgarh"}</p>
-         </div>
+        </div>
         <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
       </div>
       <div>
@@ -103,7 +132,7 @@ export default function Home() {
       <div>
         <h2 className="text-base font-bold mb-2">Shop Products</h2>
         <div className="grid grid-cols-2 gap-3">
-          {products.map((p) => (<ProductCard key={p.id} p={p} />))}
+          {products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}
         </div>
       </div>
       <div>
