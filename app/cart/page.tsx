@@ -48,10 +48,28 @@ export default function Cart() {
       razorpay_payment_id: razorpayPaymentId, order_status: "placed",
     }).select("id, order_no").single();
     if (oErr) throw oErr;
-    await supabase.from("order_items").insert(cart.map(i => ({
-      order_id: order.id, product_id: i.product_id, product_name: i.name,
+        // cart ke "mustard-1kg" jaise id ko products table ke asli uuid se map karo
+    const { data: dbProds } = await supabase.from("products").select("id, oil_type, pack_size_kg");
+    const NORM2 = (t: string) => {
+      const s = (t || "").toLowerCase();
+      if (s.includes("mustard") || s.includes("sarso") || s.includes("sarson") || s.includes("peanut")) return "mustard";
+      if (s.includes("gud")) return "gud";
+      if (s.includes("cheeni") || s.includes("chini")) return "cheeni";
+      if (s.includes("sesame") || s.includes("til")) return "sesame";
+      return s.trim();
+    };
+    const findUuid = (cartPid: string) => {
+      const m = String(cartPid || "").match(/^(.+)-(\d+)kg$/);
+      if (!m) return null;
+      const hit = (dbProds || []).find((p: any) =>
+        NORM2(p.oil_type) === NORM2(m[1]) && Number(p.pack_size_kg) === Number(m[2]));
+      return hit? hit.id : null;
+    };
+    const { error: itemsErr } = await supabase.from("order_items").insert(cart.map(i => ({
+      order_id: order.id, product_id: findUuid(i.product_id), product_name: i.name,
       pack_size_kg: i.pack_size_kg, qty: i.qty, price: i.price,
     })));
+    if (itemsErr) throw itemsErr;
     await supabase.from("tracking_events").insert({
       order_id: order.id, status: "placed", note: "Payment ho gaya. Order mil gaya hai.",
     });
