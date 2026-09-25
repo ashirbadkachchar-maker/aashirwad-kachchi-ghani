@@ -73,7 +73,7 @@ export default function Home() {
       if (db && db.length > 0) {
         setProducts(
           PRODUCTS.map((base) => ({
-           ...base,
+          ...base,
             sizes: base.sizes.map((sz) => {
               const match = (db as any[]).find((d: any) => NORM(String(d.oil_type)) === base.id && Number(d.pack_size_kg) === sz.kg);
               return match? {...sz, price: Number(match.price) } : sz;
@@ -106,7 +106,7 @@ export default function Home() {
     return () => { supabase.removeChannel(ch); };
   }, []);
   const FAYDE = lang === "hi"
-   ? [{ icon: "❤️", title: "100% शुद्ध & प्राकृतिक", sub: "कोई प्रिजर्वेटिव नहीं • कोल्ड प्रेस्ड" }, { icon: "🌿", title: "ओमेगा-3 से भरपूर", sub: "दिल व इम्यूनिटी के लिए अच्छा" }]
+  ? [{ icon: "❤️", title: "100% शुद्ध & प्राकृतिक", sub: "कोई प्रिजर्वेटिव नहीं • कोल्ड प्रेस्ड" }, { icon: "🌿", title: "ओमेगा-3 से भरपूर", sub: "दिल व इम्यूनिटी के लिए अच्छा" }]
     : [{ icon: "❤️", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "🌿", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
   return (
     <div className="px-4 py-4 space-y-5">
@@ -135,7 +135,6 @@ export default function Home() {
           {products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}
         </div>
       </div>
-      <div>
       <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi"? "शुद्ध तेल, हर घर, धार्विक/ध्रुविका" : "Pure Oil, Every Home"}</footer>
     </div>
   );
