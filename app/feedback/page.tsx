@@ -31,9 +31,9 @@ export default function FeedbackPage() {
 
   const submit = async () => {
     if (!review.trim()) return alert("Review likho");
-    const { error } = await supabase.from("feedback").insert({
-      order_id: order.id, customer_id: order.customer_id, customer_name: order.customer_name,
-      product_id: productId, rating, review, is_public: true,
+        const { error } = await supabase.from("feedback").insert({
+      order_id: order.id, customer_id: order.customer_id || null, customer_name: order.customer_name,
+      product_id: productId || null, rating, review, is_public: true,
     });
     if (error) return alert("Error: " + error.message);
     setDone(true);
