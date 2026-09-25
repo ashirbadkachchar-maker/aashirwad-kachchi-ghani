@@ -1,11 +1,23 @@
 import { NextResponse } from "next/server";
 
-// Dashboard ke products ke sahi daam (server-side list, client isko badal nahi sakta)
+// Saare possible product IDs ke daam (tumhare refactor ke baad ke IDs bhi cover)
+// product_id format: {id}-{kg}kg  e.g. "mustard-1kg", "til-1kg", "gud-2kg"
 const PRICE_MAP: Record<string, number> = {
+  // Sarson / Mustard oil
   "mustard-1kg": 199, "mustard-2kg": 379, "mustard-5kg": 899,
+  "sarso-1kg": 199, "sarso-2kg": 379, "sarso-5kg": 899,
+  "sarson-1kg": 199, "sarson-2kg": 379, "sarson-5kg": 899,
+  // Til / Sesame oil
   "sesame-1kg": 259, "sesame-2kg": 479, "sesame-5kg": 1099,
+  "til-1kg": 259, "til-2kg": 479, "til-5kg": 1099,
+  "tiltel-1kg": 259, "tiltel-2kg": 479, "tiltel-5kg": 1099,
+  // Gud kachchar
   "gud-1kg": 299, "gud-2kg": 549,
+  "til-gud-1kg": 299, "til-gud-2kg": 549, "tilgud-1kg": 299, "tilgud-2kg": 549,
+  // Cheeni kachchar
   "cheeni-1kg": 279, "cheeni-2kg": 519,
+  "til-cheeni-1kg": 279, "til-cheeni-2kg": 519, "tilcheeni-1kg": 279, "tilcheeni-2kg": 519,
+  "chini-1kg": 279, "chini-2kg": 519,
 };
 
 export async function POST(req: Request) {
@@ -14,11 +26,15 @@ export async function POST(req: Request) {
     if (!items || !Array.isArray(items) || items.length === 0)
       return NextResponse.json({ error: "Cart khaali hai" }, { status: 400 });
 
-    // Price server-side PRICE_MAP se verify karo (client ki bhej hui price par bharosa nahi)
     let total = 0;
     for (const it of items) {
-      const price = PRICE_MAP[it.product_id];
-      if (!price) return NextResponse.json({ error: "Galat product" }, { status: 400 });
+      const pid = String(it.product_id || "").toLowerCase().trim();
+      const price = PRICE_MAP[pid];
+      if (!price)
+        return NextResponse.json(
+          { error: "Galat product: '" + it.product_id + "' nahi mila. Screenshot bhejo." },
+          { status: 400 }
+        );
       const qty = Math.max(1, Math.min(100, parseInt(it.qty) || 1));
       total += price * qty;
     }
