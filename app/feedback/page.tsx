@@ -1,6 +1,21 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+
+const PROD_NAME: Record<string, string> = {
+  mustard: "सरसों का तेल",
+  sesame: "तिल का तेल",
+  gud: "तिल-गुड़ कच्चर",
+  cheeni: "तिल-चीनी कच्चर",
+};
+const NORM = (t: string) => {
+  const s = (t || "").toLowerCase();
+  if (s.includes("mustard") || s.includes("sarso") || s.includes("sarson") || s.includes("peanut")) return "mustard";
+  if (s.includes("gud")) return "gud";
+  if (s.includes("cheeni") || s.includes("chini")) return "cheeni";
+  if (s.includes("sesame") || s.includes("til")) return "sesame";
+  return s.trim();
+};
 
 export default function FeedbackPage() {
   const [orderNo, setOrderNo] = useState("");
@@ -12,14 +27,33 @@ export default function FeedbackPage() {
   const [review, setReview] = useState("");
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
+  const [allReviews, setAllReviews] = useState<any[]>([]);
+  const [prodMap, setProdMap] = useState<Record<string, string>>({});
+
+  // sabhi public reviews + product naam load karo
+  useEffect(() => {
+    const load = async () => {
+      const { data: fb } = await supabase.from("feedback")
+       .select("id, customer_name, rating, review, product_id, created_at")
+       .eq("is_public", true).order("created_at", { ascending: false }).limit(50);
+      const { data: prods } = await supabase.from("products").select("id, oil_type, pack_size_kg");
+      const map: Record<string, string> = {};
+      (prods || []).forEach((p: any) => {
+        map[p.id] = (PROD_NAME[NORM(p.oil_type)] || p.oil_type) + " (" + p.pack_size_kg + "kg)";
+      });
+      setProdMap(map);
+      if (fb) setAllReviews(fb);
+    };
+    load();
+  }, []);
 
   const find = async () => {
     setErr(""); setOrder(null); setDone(false);
     const { data } = await supabase.from("orders").select("*")
-      .eq("order_no", orderNo.trim().toUpperCase())
-      .eq("customer_mobile", mobile.trim()).single();
+     .eq("order_no", orderNo.trim().toUpperCase())
+     .eq("customer_mobile", mobile.trim()).single();
     if (!data) { setErr("Order nahi mila. Order No aur mobile check karo."); return; }
-    if (data.order_status !== "delivered") {
+    if (data.order_status!== "delivered") {
       setErr("Feedback delivery ke baad hi de sakte ho. Abhi status: " + data.order_status);
       return;
     }
@@ -31,7 +65,7 @@ export default function FeedbackPage() {
 
   const submit = async () => {
     if (!review.trim()) return alert("Review likho");
-        const { error } = await supabase.from("feedback").insert({
+    const { error } = await supabase.from("feedback").insert({
       order_id: order.id, customer_id: order.customer_id || null, customer_name: order.customer_name,
       product_id: productId || null, rating, review, is_public: true,
     });
@@ -44,10 +78,10 @@ export default function FeedbackPage() {
       <h2 className="text-lg font-bold">⭐ Feedback Do</h2>
       <p className="text-xs text-gray-500">Delivery ke baad apna review do — ye sabko dikhega!</p>
 
-      {!order && !done && (
+      {!order &&!done && (
         <div className="bg-white rounded-2xl p-4 shadow border border-amber-100 space-y-2">
           <input value={orderNo} onChange={(e) => setOrderNo(e.target.value)}
-            placeholder="Order No (jaise AKC-000001)"
+            placeholder="Order No (jaise AKG-000001)"
             className="w-full border rounded-xl p-2 uppercase" />
           <input value={mobile} onChange={(e) => setMobile(e.target.value)}
             placeholder="Mobile number" maxLength={10} inputMode="numeric"
@@ -59,7 +93,7 @@ export default function FeedbackPage() {
         </div>
       )}
 
-      {order && !done && (
+      {order &&!done && (
         <div className="bg-white rounded-2xl p-4 shadow border border-amber-100 space-y-3">
           <p className="font-bold text-sm">{order.order_no} ✅ Delivered</p>
           <div>
@@ -76,7 +110,7 @@ export default function FeedbackPage() {
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((r) => (
                 <button key={r} onClick={() => setRating(r)}
-                  className={`text-3xl ${r <= rating ? "text-amber-500" : "text-gray-300"}`}>★</button>
+                  className={`text-3xl ${r <= rating? "text-amber-500" : "text-gray-300"}`}>★</button>
               ))}
             </div>
           </div>
@@ -96,6 +130,28 @@ export default function FeedbackPage() {
           <p className="text-sm text-gray-500 mt-1">Aapka review sabko dikhega ⭐</p>
         </div>
       )}
+
+      {/* ===== Sabhi reviews ki scroll list ===== */}
+      <div>
+        <h2 className="text-base font-bold mb-2">💬 Sabhi Customer Reviews ({allReviews.length})</h2>
+        {allReviews.length === 0 && (
+          <p className="text-sm text-gray-500">Abhi koi review nahi — pehla review aap de sakte ho!</p>
+        )}
+        <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+          {allReviews.map((r) => (
+            <div key={r.id} className="bg-white rounded-2xl p-3 shadow border border-amber-100">
+              <div className="flex justify-between items-center">
+                <p className="font-bold text-sm">{r.customer_name}</p>
+                <p className="text-amber-500 text-sm">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
+              </div>
+              {r.product_id && prodMap[r.product_id] && (
+                <p className="text-xs text-green-700 font-semibold mt-0.5">📦 {prodMap[r.product_id]}</p>
+              )}
+              <p className="text-sm text-gray-700 mt-1">{r.review}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
