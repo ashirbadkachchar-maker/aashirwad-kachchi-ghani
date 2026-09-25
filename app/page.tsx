@@ -90,7 +90,7 @@ export default function Home() {
           ))}
         </div>
       </div>
-      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi" ? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
+      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi" ? "शुद्ध तेल, हर घर-भाटी प्रोडक्ट्स " : "Pure Oil, Every Home-Bhati Products"}</footer>
     </div>
   );
 }
