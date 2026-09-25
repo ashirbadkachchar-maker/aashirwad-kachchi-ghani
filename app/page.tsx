@@ -1,95 +1,122 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useLang } from "./components/SiteChrome";
-type Review = { id: string; customer_name: string; rating: number; review: string };
-type SizeOpt = { kg: number; price: number };
-type Prod = { id: string; img: string; nameHi: string; nameEn: string; sizes: SizeOpt[] };
-const PRODUCTS: Prod[] = [
-  { id: "mustard", img: "/products/mustard.webp", nameHi: "सरसों का तेल", nameEn: "Mustard Oil", sizes: [{ kg: 1, price: 199 }, { kg: 2, price: 379 }, { kg: 5, price: 899 }] },
-  { id: "sesame", img: "/products/sesame.webp", nameHi: "तिल का तेल", nameEn: "Sesame Oil", sizes: [{ kg: 1, price: 259 }, { kg: 2, price: 479 }, { kg: 5, price: 1099 }] },
-  { id: "gud", img: "/products/gud.webp", nameHi: "तिल गुड़ की कच्चर", nameEn: "Sesame Jaggery Chikki", sizes: [{ kg: 1, price: 299 }, { kg: 2, price: 549 }] },
-  { id: "cheeni", img: "/products/cheeni.webp", nameHi: "तिल चीनी की कच्चर", nameEn: "Sesame Sugar Chikki", sizes: [{ kg: 1, price: 279 }, { kg: 2, price: 519 }] },
-];
-function ProductCard({ p }: { p: Prod }) {
-  const { lang } = useLang();
-  const [sel, setSel] = useState(0);
-  const size = p.sizes[sel];
-  const addToCart = () => {
-    const cart = JSON.parse(localStorage.getItem("akg_cart") || "[]");
-    const pid = p.id + "-" + size.kg + "kg";
-    const found = cart.find((c: any) => c.product_id === pid);
-    if (found) found.qty += 1;
-    else cart.push({ product_id: pid, name: lang === "hi" ? p.nameHi : p.nameEn, pack_size_kg: size.kg, price: size.price, qty: 1 });
-    localStorage.setItem("akg_cart", JSON.stringify(cart));
-    alert(lang === "hi" ? "कार्ट में जुड़ गया!" : "Added to cart!");
-  };
-  return (
-    <div className="bg-white rounded-2xl shadow p-3 border border-amber-100 flex flex-col">
-      <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl mb-2" />
-      <h3 className="font-bold text-sm">{lang === "hi" ? p.nameHi : p.nameEn}</h3>
-      <div className="flex gap-1 mt-1.5 flex-wrap">
-        {p.sizes.map((s, i) => (
-          <button key={s.kg} onClick={() => setSel(i)} className={"text-[11px] px-2 py-0.5 rounded-full border font-semibold " + (i === sel ? "bg-orange-500 text-white border-orange-500" : "border-amber-300 text-amber-700")}>{s.kg}kg</button>
-        ))}
-      </div>
-      <p className="mt-1.5 text-lg font-bold text-green-700">₹{size.price}</p>
-      <button onClick={addToCart} className="mt-2 w-full text-sm bg-orange-500 text-white rounded-xl py-2 font-bold">Add</button>
-    </div>
-  );
-}
+
+type Product = { 
+  id: string; 
+  name: string; 
+  oil_type: string; 
+  pack_size_kg: number; 
+  price: number; 
+  mrp?: number;
+  is_active?: boolean;
+};
+
+const CATS: Record<string, { title: string; icon: string }> = {
+  mustard: { title: "सरसों का तेल", icon: "🫗" },
+  peanut: { title: "मूंगफली तेल", icon: "🥜" },
+  til: { title: "तिल का तेल", icon: "🌿" },
+  sesame: { title: "तिल का तेल", icon: "🌿" },
+  til_gud: { title: "तिल कच्चर (गुड़)", icon: "🟤" },
+  til_cheeni: { title: "तिल कच्चर (चीनी)", icon: "⚪" },
+  gud: { title: "तिल कच्चर (गुड़)", icon: "🟤" },
+  cheeni: { title: "तिल कच्चर (चीनी)", icon: "⚪" },
+};
+
 export default function Home() {
-  const { lang } = useLang();
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selIdx, setSelIdx] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("is_active", true)
+      .order("pack_size_kg", { ascending: true });
+    if (!error && data) {
+      setProducts(data as Product[]);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("feedback").select("*").eq("is_public", true).order("created_at", { ascending: false }).limit(10);
-      if (data) setReviews(data);
-    })();
+    fetchProducts();
+    // realtime: admin price change turant dikhega
+    const ch = supabase.channel("products-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        fetchProducts();
+      }).subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, []);
-  const FAYDE = lang === "hi"
-    ? [{ icon: "❤️", title: "100% शुद्ध & प्राकृतिक", sub: "कोई प्रिजर्वेटिव नहीं • कोल्ड प्रेस्ड" }, { icon: "\uD83C\uDF3F", title: "ओमेगा-3 से भरपूर", sub: "दिल व इम्यूनिटी के लिए अच्छा" }]
-    : [{ icon: "❤️", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "\uD83C\uDF3F", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
+
+  // oil_type se group karo
+  const grouped: Record<string, Product[]> = {};
+  products.forEach(p => {
+    const key = p.oil_type || "other";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(p);
+  });
+
+  const addToCart = (variant: Product) => {
+    const cart = JSON.parse(localStorage.getItem("akg_cart") || "[]");
+    const found = cart.find((c: any) => c.product_id === variant.id);
+    if (found) found.qty += 1;
+    else cart.push({ 
+      product_id: variant.id, 
+      name: variant.name, 
+      pack_size_kg: variant.pack_size_kg, 
+      price: variant.price, 
+      qty: 1 
+    });
+    localStorage.setItem("akg_cart", JSON.stringify(cart));
+    alert("कार्ट में जुड़ गया! - " + variant.name + " " + variant.pack_size_kg + "kg");
+  };
+
+  if (loading) return <div className="p-10 text-center">Loading products...</div>;
+
   return (
-    <div className="px-4 py-4 space-y-5">
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white flex items-center gap-4 shadow">
-        <div className="flex-1">
-          <h2 className="text-xl font-bold leading-snug">{lang === "hi" ? "शुद्ध कच्ची घानी तेल" : "Pure Kachchi Ghani Oil"}</h2>
-          <p className="text-xs mt-1 opacity-95">{lang === "hi" ? "बिना केमिकल, कोल्हू में पिसाई" : "No chemicals, traditionally pressed"}</p>
-        </div>
-        <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
-      </div>
-      <div>
-        <h2 className="text-base font-bold mb-2">{lang === "hi" ? "तेल के फायदे" : "Oil Benefits"}</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {FAYDE.map((b) => (
-            <div key={b.title} className="bg-white rounded-2xl p-4 shadow border border-amber-100">
-              <div className="text-3xl mb-1">{b.icon}</div>
-              <h3 className="font-bold text-sm">{b.title}</h3>
-              <p className="text-[11px] text-gray-500 mt-0.5">{b.sub}</p>
+    <div className="max-w-6xl mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Shop Products - Live Price from Admin</h1>
+      <p className="text-sm text-gray-500 mb-6">Admin ( /admin ) me price change karte hi yahan turant update hoga (realtime).</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Object.entries(grouped).map(([type, variants]) => {
+          const v = variants.sort((a,b)=>a.pack_size_kg-b.pack_size_kg);
+          const idx = selIdx[type] || 0;
+          const selected = v[Math.min(idx, v.length-1)] || v[0];
+          const cat = CATS[type] || { title: type, icon: "📦" };
+          return (
+            <div key={type} className="border rounded-2xl p-4 shadow-sm">
+              <div className="text-lg font-bold">{cat.icon} {cat.title}</div>
+              <div className="flex gap-2 mt-3">
+                {v.map((vv, i) => (
+                  <button 
+                    key={vv.id}
+                    onClick={()=> setSelIdx({...selIdx, [type]: i})}
+                    className={"px-3 py-1 rounded-full border text-sm " + (i===idx ? "bg-orange-500 text-white border-orange-500" : "bg-white")}
+                  >
+                    {vv.pack_size_kg}kg
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3">
+                <span className="text-xl font-bold">₹{selected?.price}</span>
+                {selected?.mrp && selected.mrp > selected.price && (
+                  <span className="ml-2 line-through text-gray-400 text-sm">₹{selected.mrp}</span>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">{selected?.name}</div>
+              <button 
+                onClick={()=> selected && addToCart(selected)}
+                className="mt-3 w-full bg-orange-500 text-white rounded-xl py-2 font-bold"
+              >
+                Add - ₹{selected?.price}
+              </button>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
-      <div>
-        <h2 className="text-base font-bold mb-2">Shop Products</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {PRODUCTS.map((p) => (<ProductCard key={p.id} p={p} />))}
-        </div>
-      </div>
-      <div>
-        <h2 className="text-base font-bold mb-2">Customer Reviews</h2>
-        {reviews.length === 0 && (<p className="text-sm text-gray-500">{lang === "hi" ? "Abhi koi review nahi — pehla review aap de sakte ho!" : "No reviews yet — be the first!"}</p>)}
-        <div className="space-y-2">
-          {reviews.map((r) => (
-            <div key={r.id} className="bg-white rounded-2xl p-3 shadow border border-amber-100">
-              <p className="text-sm font-bold">{r.customer_name}</p>
-              <p className="text-sm text-gray-600">{r.review}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi" ? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
     </div>
   );
 }
