@@ -136,18 +136,7 @@ export default function Home() {
         </div>
       </div>
       <div>
-        <h2 className="text-base font-bold mb-2">Customer Reviews</h2>
-        {reviews.length === 0 && (<p className="text-sm text-gray-500">{lang === "hi"? "Abhi koi review nahi — pehla review aap de sakte ho!" : "No reviews yet — be the first!"}</p>)}
-        <div className="space-y-2">
-          {reviews.map((r) => (
-            <div key={r.id} className="bg-white rounded-2xl p-3 shadow border border-amber-100">
-              <p className="text-sm font-bold">{r.customer_name}</p>
-              <p className="text-sm text-gray-600">{r.review}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
+      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi"? "शुद्ध तेल, हर घर, धार्विक/ध्रुविका" : "Pure Oil, Every Home"}</footer>
     </div>
   );
 }
