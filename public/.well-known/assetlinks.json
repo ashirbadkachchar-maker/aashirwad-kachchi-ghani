@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.aashirwad_kachchi_ghani.twa",
+        "sha256_cert_fingerprints": ["AF:26:02:87:33:51:16:DE:E0:23:BA:A0:14:80:A1:F3:1A:E4:46:D7:BC:AC:6E:AA:B5:96:7A:5B:9C:69:1C:D8"]
+      }
+    }]
