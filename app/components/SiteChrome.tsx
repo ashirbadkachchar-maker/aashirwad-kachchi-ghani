@@ -9,6 +9,16 @@ export const useLang = () => useContext(LangCtx);
 export default function SiteChrome({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("hi");
   const pathname = usePathname();
+    const [customer, setCustomer] = useState<any>(null);
+  useEffect(() => {
+    const read = () => {
+      const s = localStorage.getItem("akg_customer");
+      setCustomer(s? JSON.parse(s) : null);
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => window.removeEventListener("focus", read);
+  }, [pathname]);
   useEffect(() => { const s = localStorage.getItem("akg_lang"); if (s === "en" || s === "hi") setLang(s); }, []);
   const change = (l: Lang) => { setLang(l); localStorage.setItem("akg_lang", l); };
   const nav = [
@@ -26,6 +36,9 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
             <h1 className="font-bold text-lg leading-tight">{lang === "hi" ? "आशीर्वाद कच्चर" : "Aashirwad Kachchar"}</h1>
             <p className="text-[11px] opacity-90">{lang === "hi" ? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</p>
           </div>
+                    <Link href="/orders" className="bg-white/25 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap">
+            {customer? "👤 " + String(customer.name).split(" ")[0] : "🔑 " + (lang === "hi"? "लॉगिन" : "Login")}
+          </Link>
           <button onClick={() => change(lang === "hi" ? "en" : "hi")} className="bg-white/25 rounded-full p-1 text-xs font-bold flex items-center" aria-label="Language toggle">
             <span className={"px-2 py-0.5 rounded-full " + (lang === "hi" ? "bg-white text-orange-600" : "text-white")}>हिं</span>
             <span className={"px-2 py-0.5 rounded-full " + (lang === "en" ? "bg-white text-orange-600" : "text-white")}>EN</span>
