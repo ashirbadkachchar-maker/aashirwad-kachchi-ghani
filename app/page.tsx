@@ -94,7 +94,7 @@ export default function Home() {
         <button onClick={() => goToProduct(products[slide].id)} className="w-full text-left flex items-center gap-4">
           <div className="flex-1">
             <h2 className="text-xl font-bold leading-snug">{lang === "hi"? products[slide].nameHi : products[slide].nameEn}</h2>
-            <p className="text-xs mt-1 opacity-95">{lang === "hi"? "बिना केमिकल, कोल्हू में पिसाई | जोधपुर रोड, भोपालगढ़" : "No chemicals, traditionally pressed | Jodhpur Road, Bhopalgarh"}</p>
+            <p className="text-xs mt-1 opacity-95">{lang === "hi"? "बिना केमिकल, कोल्हू में पिसाई" : "No chemicals, traditionally pressed"}<br />{lang === "hi"? "पता-जोधपुर रोड, भोपालगढ़" : "Address-Jodhpur Road, Bhopalgarh"}</p>
           </div>
           <img src={products[slide].img} alt={products[slide].nameHi} className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
         </button>
