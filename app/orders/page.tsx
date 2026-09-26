@@ -5,15 +5,6 @@ import { useLang } from "../components/SiteChrome";
 const STATUS_HI: Record<string, string> = { placed: "ऑर्डर मिल गया", packed: "पैक हो गया", shipped: "रास्ते में है", delivered: "डिलीवर हो गया", cancelled: "रद्द हो गया" };
 const STATUS_EN: Record<string, string> = { placed: "Order placed", packed: "Packed", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" };
 const STEPS = ["placed", "packed", "shipped", "delivered"];
-const NORM = (t: string) => {
-  const s = (t || "").toLowerCase();
-  if (s.includes("mustard") || s.includes("sarso") || s.includes("sarson")) return "mustard";
-  if (s.includes("peanut") || s.includes("moongfali") || s.includes("mungfali")) return "peanut";
-  if (s.includes("gud")) return "gud";
-  if (s.includes("cheeni") || s.includes("chini")) return "cheeni";
-  if (s.includes("sesame") || s.includes("til")) return "sesame";
-  return s.trim();
-};
 export default function OrdersPage() {
   const { lang } = useLang();
   const [customer, setCustomer] = useState<any>(null);
@@ -48,7 +39,7 @@ export default function OrdersPage() {
     setOpenId(oid);
     if (localStorage.getItem("akg_reviewed_" + oid)) setReviewed((p) => ({...p, [oid]: true}));
     if (!items[oid]) {
-      const { data } = await supabase.from("order_items").select("product_name, pack_size_kg, qty, price").eq("order_id", oid);
+      const { data } = await supabase.from("order_items").select("product_id, product_name, pack_size_kg, qty, price").eq("order_id", oid);
       setItems((p) => ({...p, [oid]: data || [] }));
     }
   };
@@ -58,23 +49,17 @@ export default function OrdersPage() {
     setSavingReview(true);
     let orderItems = items[oid] || [];
     if (orderItems.length === 0) {
-      const { data } = await supabase.from("order_items").select("product_name, pack_size_kg, qty, price").eq("order_id", oid);
+      const { data } = await supabase.from("order_items").select("product_id, product_name, pack_size_kg, qty, price").eq("order_id", oid);
       orderItems = data || [];
     }
-    const { data: prods } = await supabase.from("products").select("id, oil_type");
     const txt = (reviewText[oid] || "").trim();
-    const rows = orderItems.map((it: any) => {
-      const base = NORM(String(it.product_name || ""));
-      const match = (prods || []).find((p: any) => NORM(String(p.oil_type)) === base);
-      const pname = `${it.product_name || ""}${it.pack_size_kg? ` (${it.pack_size_kg}kg)` : ""}`.trim();
-      return {
-        customer_name: customer.name,
-        rating: s,
-        review: pname? `[${pname}] ${txt}` : txt,
-        product_id: match? match.id : null,
-        is_public: true,
-      };
-    });
+    const rows = orderItems.map((it: any) => ({
+      customer_name: customer.name,
+      rating: s,
+      review: txt,
+      product_id: it.product_id || null,
+      is_public: true,
+    }));
     const toInsert = rows.length > 0? rows : [{
       customer_name: customer.name,
       rating: s,
