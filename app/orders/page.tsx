@@ -15,19 +15,15 @@ export default function OrdersPage() {
   const [err, setErr] = useState("");
   useEffect(() => {
     const s = localStorage.getItem("akg_customer");
-    if (s) { try { const c = JSON.parse(s); setCustomer(c); if(c.id) loadOrders(c.id); else if(c.mobile) loadByMobile(c.mobile); } catch {} }
+    if (s) { try { const c = JSON.parse(s); setCustomer(c); if(c.id) loadOrders(c.id); } catch {} }
   }, []);
   const loadOrders = async (cid: string) => {
     const { data } = await supabase.from("orders").select("id, order_no, total_amount, order_status, created_at, shipping_address").eq("customer_id", cid).order("created_at", { ascending: false });
     if (data) setOrders(data);
   };
-  const loadByMobile = async (mob: string) => {
-    const { data } = await supabase.from("orders").select("id, order_no, total_amount, order_status, created_at, shipping_address").eq("customer_mobile", mob).order("created_at", { ascending: false });
-    if (data) setOrders(data);
-  };
   const login = async () => {
     setErr("");
-    if (!/^[0-9]{10}$/.test(mobile.trim())) { setErr(lang === "hi"? "10 digit ka mobile number likho" : "Enter 10-digit mobile number"); return; }
+    if (!/^[0-9]{10}$/.test(mobile.trim())) { setErr(lang === "hi"? "10 digit ka mobile number likho" : "Enter 10-digit mobile"); return; }
     const { data } = await supabase.from("customers").select("id, name, mobile").eq("mobile", mobile.trim()).single();
     if (!data) { setErr(lang === "hi"? "Is mobile se koi order nahi mila" : "No orders found"); return; }
     localStorage.setItem("akg_customer", JSON.stringify(data));
@@ -48,9 +44,9 @@ export default function OrdersPage() {
       <div className="px-4 py-8 space-y-4">
         <h2 className="text-lg font-bold">📦 {lang === "hi"? "Mere Orders" : "My Orders"}</h2>
         <div className="bg-white rounded-2xl p-4 shadow border border-amber-100 space-y-2">
-          <p className="text-sm text-gray-600">{lang === "hi"? "Mobile daalo — saare orders dikhenge" : "Enter mobile to see all orders"}</p>
+          <p className="text-sm text-gray-600">{lang === "hi"? "Apna mobile number daalo — saare orders yahin dikhenge" : "Enter mobile to see all orders here"}</p>
           <input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="Mobile (10 digit)" maxLength={10} inputMode="numeric" className="w-full border rounded-xl p-2" />
-          <button onClick={login} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold">Login Karo 🔑</button>
+          <button onClick={login} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold">{lang === "hi"? "Login Karo 🔑" : "Login 🔑"}</button>
           {err && <p className="text-red-500 text-sm">{err}</p>}
         </div>
       </div>
