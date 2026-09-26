@@ -56,6 +56,14 @@ export default function Home() {
   const { lang } = useLang();
   const [products, setProducts] = useState<Prod[]>(PRODUCTS);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
+  const [slide, setSlide] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setSlide((s) => (s + 1) % products.length), 3000);
+    return () => clearInterval(t);
+  }, [products.length]);
+  const goToProduct = (id: string) => {
+    document.getElementById("prod-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
   useEffect(() => {
     const loadPrices = async () => {
       const { data: db } = await supabase.from("products").select("oil_type, pack_size_kg, price").eq("is_active", true);
@@ -82,12 +90,19 @@ export default function Home() {
     : [{ icon: "❤️", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "🌿", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
   return (
     <div className="px-4 py-4 space-y-5">
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white flex items-center gap-4 shadow">
-        <div className="flex-1">
-          <h2 className="text-xl font-bold leading-snug">{lang === "hi"? "शुद्ध कच्ची घानी तेल - भाटी प्रोडक्ट्स" : "Pure Kachchi Ghani Oil - Bhati Products"}</h2>
-          <p className="text-xs mt-1 opacity-95">{lang === "hi"? "बिना केमिकल, कोल्हू में पिसाई | जोधपुर रोड, भोपालगढ़" : "No chemicals, traditionally pressed | Jodhpur Road, Bhopalgarh"}</p>
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white shadow">
+        <button onClick={() => goToProduct(products[slide].id)} className="w-full text-left flex items-center gap-4">
+          <div className="flex-1">
+            <h2 className="text-xl font-bold leading-snug">{lang === "hi"? products[slide].nameHi : products[slide].nameEn}</h2>
+            <p className="text-xs mt-1 opacity-95">{lang === "hi"? "बिना केमिकल, कोल्हू में पिसाई | जोधपुर रोड, भोपालगढ़" : "No chemicals, traditionally pressed | Jodhpur Road, Bhopalgarh"}</p>
+          </div>
+          <img src={products[slide].img} alt={products[slide].nameHi} className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
+        </button>
+        <div className="flex justify-center gap-1.5 mt-3">
+          {products.map((p, i) => (
+            <button key={p.id} onClick={() => setSlide(i)} aria-label={p.nameHi} className={"h-2 rounded-full " + (i === slide? "w-6 bg-white" : "w-2 bg-white/50")} />
+          ))}
         </div>
-        <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
       </div>
       <div>
         <h2 className="text-base font-bold mb-2">{lang === "hi"? "तेल के फायदे" : "Oil Benefits"}</h2>
@@ -97,9 +112,12 @@ export default function Home() {
       </div>
       <div>
         <h2 className="text-base font-bold mb-2">Shop Products</h2>
-        <div className="grid grid-cols-2 gap-3">{products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}</div>
+        <div className="grid grid-cols-2 gap-3">{products.map((p) => (<div key={p.id} id={"prod-" + p.id} className="scroll-mt-24"><ProductCard p={p} rating={ratings[p.id]} /></div>))}</div>
       </div>
-      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
+      <footer className="text-center pb-4">
+        <p className="text-xs text-gray-400">आशीर्वाद कच्चर • {lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</p>
+        <p className="text-[10px] text-gray-400 mt-0.5">@app developed by -D&D Pvt. Ltd. Jodhpur</p>
+      </footer>
     </div>
   );
 }
