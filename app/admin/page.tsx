@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getAdmin, logoutAdmin } from "@/lib/admin";
 
@@ -14,8 +14,9 @@ const STATUS_HI: Record<string, string> = {
 };
 const NEXT_STATUS = ["packed", "dispatched", "in_transit", "delivered"];
 
-export default function AdminDashboard() {
+function AdminDashboardInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [admin, setAdmin] = useState<any>(null);
   const [tab, setTab] = useState<"orders" | "products" | "feedback">("orders");
   const [orders, setOrders] = useState<any[]>([]);
@@ -32,6 +33,11 @@ export default function AdminDashboard() {
     loadAll();
   }, []);
 
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "orders" || t === "products" || t === "feedback") setTab(t);
+  }, [searchParams]);
+
   const loadAll = async () => {
     const { data: o } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(200);
     setOrders(o || []);
@@ -44,7 +50,7 @@ export default function AdminDashboard() {
   const loadItems = async (orderId: string) => {
     if (items[orderId]) return;
     const { data } = await supabase.from("order_items").select("*").eq("order_id", orderId);
-    setItems((prev) => ({ ...prev, [orderId]: data || [] }));
+    setItems((prev) => ({...prev, [orderId]: data || [] }));
   };
 
   const updateStatus = async (order: any, status: string) => {
@@ -73,7 +79,7 @@ export default function AdminDashboard() {
         o.customer_mobile, o.shipping_address || "", o.total_amount, o.payment_status, o.order_status,
       ])
     );
-    const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = rows.map((r) => r.map((v) => `"${String(v?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -83,9 +89,9 @@ export default function AdminDashboard() {
 
   if (!admin) return <p className="p-4">Loading...</p>;
 
-  const shown = filter === "all" ? orders : orders.filter((o) => o.order_status === filter);
+  const shown = filter === "all"? orders : orders.filter((o) => o.order_status === filter);
   const totalSales = orders.filter((o) => o.payment_status === "paid")
-    .reduce((s, o) => s + Number(o.total_amount), 0);
+   .reduce((s, o) => s + Number(o.total_amount), 0);
   const pending = orders.filter((o) => o.order_status === "placed").length;
 
   return (
@@ -115,22 +121,13 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        {(["orders", "products", "feedback"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`rounded-2xl py-2 font-bold text-sm ${tab === t ? "bg-amber-500 text-white" : "bg-white border"}`}>
-            {t === "orders" ? "📋 Orders" : t === "products" ? "🫗 Products" : "⭐ Feedback"}
-          </button>
-        ))}
-      </div>
-
       {tab === "orders" && (
         <>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {[["all", "Sab"], ["placed", "Naye"], ["packed", "Packed"], ["dispatched", "Dispatched"],
               ["in_transit", "Raste Me"], ["delivered", "Delivered"]].map(([k, l]) => (
               <button key={k} onClick={() => setFilter(k)}
-                className={`whitespace-nowrap text-xs rounded-full px-3 py-1 font-bold ${filter === k ? "bg-amber-500 text-white" : "bg-white border"}`}>
+                className={`whitespace-nowrap text-xs rounded-full px-3 py-1 font-bold ${filter === k? "bg-amber-500 text-white" : "bg-white border"}`}>
                 {l}
               </button>
             ))}
@@ -142,7 +139,7 @@ export default function AdminDashboard() {
             {shown.map((o) => (
               <div key={o.id} className="bg-white rounded-2xl p-3 shadow border border-amber-100">
                 <div className="flex justify-between items-center"
-                  onClick={() => { setOpen(open === o.id ? null : o.id); loadItems(o.id); }}>
+                  onClick={() => { setOpen(open === o.id? null : o.id); loadItems(o.id); }}>
                   <div>
                     <p className="font-bold text-sm">{o.order_no} <span className="text-green-700">₹{o.total_amount}</span></p>
                     <p className="text-xs text-gray-500">{o.customer_name} • {o.customer_mobile}</p>
@@ -154,12 +151,12 @@ export default function AdminDashboard() {
                 {open === o.id && (
                   <div className="mt-2 pt-2 border-t text-sm space-y-1">
                     <p className="text-xs text-gray-500">📍 {o.shipping_address}</p>
-                    <p className="text-xs text-gray-500">💳 Payment: {o.payment_status}{o.razorpay_payment_id ? ` (${o.razorpay_payment_id})` : ""}</p>
+                    <p className="text-xs text-gray-500">💳 Payment: {o.payment_status}{o.razorpay_payment_id? ` (${o.razorpay_payment_id})` : ""}</p>
                     {(items[o.id] || []).map((it) => (
                       <p key={it.id} className="text-xs">• {it.product_name} — {it.pack_size_kg}kg × {it.qty} = ₹{it.price * it.qty}</p>
                     ))}
                     <div className="flex flex-wrap gap-2 pt-2">
-                      {NEXT_STATUS.filter((s) => s !== o.order_status).map((s) => (
+                      {NEXT_STATUS.filter((s) => s!== o.order_status).map((s) => (
                         <button key={s} onClick={() => updateStatus(o, s)}
                           className="text-xs bg-green-600 text-white rounded-xl px-3 py-2 font-bold">
                           {STATUS_HI[s]} ✓
@@ -183,17 +180,17 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-3 gap-2 mt-2 items-end">
                 <label className="text-xs">Price ₹
                   <input type="number" value={p.price}
-                    onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, price: e.target.value } : x))}
+                    onChange={(e) => setProducts(products.map((x) => x.id === p.id? {...x, price: e.target.value } : x))}
                     className="w-full border rounded-lg p-1" />
                 </label>
                 <label className="text-xs">Stock
                   <input type="number" value={p.stock_qty}
-                    onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, stock_qty: e.target.value } : x))}
+                    onChange={(e) => setProducts(products.map((x) => x.id === p.id? {...x, stock_qty: e.target.value } : x))}
                     className="w-full border rounded-lg p-1" />
                 </label>
                 <label className="text-xs">Active?
                   <input type="checkbox" checked={p.is_active}
-                    onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, is_active: e.target.checked } : x))}
+                    onChange={(e) => setProducts(products.map((x) => x.id === p.id? {...x, is_active: e.target.checked } : x))}
                     className="w-5 h-5 block mt-1" />
                 </label>
               </div>
@@ -221,5 +218,13 @@ export default function AdminDashboard() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <Suspense fallback={<p className="p-4">Loading...</p>}>
+      <AdminDashboardInner />
+    </Suspense>
   );
 }
