@@ -13,6 +13,10 @@ export default function OrdersPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [items, setItems] = useState<Record<string, any[]>>({});
   const [err, setErr] = useState("");
+  const [stars, setStars] = useState<Record<string, number>>({});
+  const [reviewText, setReviewText] = useState<Record<string, string>>({});
+  const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
+  const [savingReview, setSavingReview] = useState(false);
   useEffect(() => {
     const s = localStorage.getItem("akg_customer");
     if (s) { try { const c = JSON.parse(s); setCustomer(c); if(c.id) loadOrders(c.id); } catch {} }
@@ -29,13 +33,30 @@ export default function OrdersPage() {
     localStorage.setItem("akg_customer", JSON.stringify(data));
     setCustomer(data); loadOrders(data.id);
   };
-  const logout = () => { localStorage.removeItem("akg_customer"); setCustomer(null); setOrders([]); setMobile(""); setOpenId(null); };
+  const logout = () => { localStorage.removeItem("akg_customer"); setCustomer(null); setOrders([]); setMobile(""); setOpenId(null); setStars({}); setReviewText({}); setReviewed({}); };
   const toggleItems = async (oid: string) => {
     if (openId === oid) { setOpenId(null); return; }
     setOpenId(oid);
+    if (localStorage.getItem("akg_reviewed_" + oid)) setReviewed((p) => ({...p, [oid]: true}));
     if (!items[oid]) {
       const { data } = await supabase.from("order_items").select("product_name, pack_size_kg, qty, price").eq("order_id", oid);
       setItems((p) => ({...p, [oid]: data || [] }));
+    }
+  };
+  const submitReview = async (oid: string) => {
+    const s = stars[oid] || 0;
+    if (!s || !customer) return;
+    setSavingReview(true);
+    const { error } = await supabase.from("feedback").insert({
+      customer_name: customer.name,
+      rating: s,
+      review: reviewText[oid] || "",
+      is_public: true,
+    });
+    setSavingReview(false);
+    if (!error) {
+      localStorage.setItem("akg_reviewed_" + oid, "1");
+      setReviewed((p) => ({...p, [oid]: true}));
     }
   };
   const S = lang === "hi"? STATUS_HI : STATUS_EN;
@@ -65,8 +86,29 @@ export default function OrdersPage() {
               <div className="flex justify-between items-center"><p className="font-bold text-sm">{o.order_no}</p><span className={`text-xs font-bold px-2 py-0.5 rounded-full ${o.order_status === "delivered"? "bg-green-100 text-green-700" : o.order_status === "cancelled"? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>{S[o.order_status] || o.order_status}</span></div>
               <p className="text-xs text-gray-500 mt-0.5">{new Date(o.created_at).toLocaleDateString("en-IN")} • ₹{o.total_amount}</p>
             </button>
-            {o.order_status!== "cancelled" && (<div className="flex items-center mt-2 mb-1">{STEPS.map((s, i) => (<div key={s} className="flex-1 flex items-center"><div className={`w-5 h-5 rounded-full flex items-center justify-center text- font-bold ${i <= stepIdx? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}>{i <= stepIdx? "✓" : i + 1}</div>{i < STEPS.length - 1 && <div className={`flex-1 h-1 mx-0.5 rounded ${i < stepIdx? "bg-green-500" : "bg-gray-200"}`} />}</div>))}</div>)}
-            {openId === o.id && (<div className="mt-2 pt-2 border-t border-amber-100 space-y-1">{(items[o.id] || []).map((it, j) => (<p key={j} className="text-xs text-gray-600">{it.product_name} ({it.pack_size_kg}kg) × {it.qty} — ₹{it.price * it.qty}</p>))}<p className="text-xs text-gray-500">📍 {o.shipping_address}</p></div>)}
+            {o.order_status!== "cancelled" && (<div className="flex items-center mt-2 mb-1">{STEPS.map((s, i) => (<div key={s} className="flex-1 flex items-center"><div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${i <= stepIdx? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}>{i <= stepIdx? "✓" : i + 1}</div>{i < STEPS.length - 1 && <div className={`flex-1 h-1 mx-0.5 rounded ${i < stepIdx? "bg-green-500" : "bg-gray-200"}`} />}</div>))}</div>)}
+            {openId === o.id && (
+              <div className="mt-2 pt-2 border-t border-amber-100 space-y-1">
+                {(items[o.id] || []).map((it, j) => (<p key={j} className="text-xs text-gray-600">{it.product_name} ({it.pack_size_kg}kg) × {it.qty} — ₹{it.price * it.qty}</p>))}
+                <p className="text-xs text-gray-500">📍 {o.shipping_address}</p>
+                <div className="pt-2 mt-1 border-t border-amber-100">
+                  {reviewed[o.id] ? (
+                    <p className="text-center text-green-600 font-bold text-sm py-1">🙏 Review ke liye dhanyavaad!</p>
+                  ) : (
+                    <div className="space-y-2 py-1">
+                      <p className="font-bold text-sm text-center">Apna review do ⭐</p>
+                      <div className="flex justify-center gap-1">
+                        {[1,2,3,4,5].map((s) => (
+                          <button key={s} onClick={() => setStars((p) => ({...p, [o.id]: s}))} className="text-3xl">{s <= (stars[o.id] || 0) ? "⭐" : "☆"}</button>
+                        ))}
+                      </div>
+                      <input value={reviewText[o.id] || ""} onChange={(e) => setReviewText((p) => ({...p, [o.id]: e.target.value}))} placeholder="Kuch kehna ho to likho (optional)" className="w-full border rounded-xl p-2 text-sm" />
+                      <button onClick={() => submitReview(o.id)} disabled={!(stars[o.id] > 0) || savingReview} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50">{savingReview ? "Ruko..." : "Review Bhejo"}</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
