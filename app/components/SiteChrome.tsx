@@ -9,7 +9,8 @@ export const useLang = () => useContext(LangCtx);
 export default function SiteChrome({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("hi");
   const pathname = usePathname();
-    const [customer, setCustomer] = useState<any>(null);
+  const [customer, setCustomer] = useState<any>(null);
+  const [cartCount, setCartCount] = useState(0);
   useEffect(() => {
     const read = () => {
       const s = localStorage.getItem("akg_customer");
@@ -18,6 +19,21 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
     read();
     window.addEventListener("focus", read);
     return () => window.removeEventListener("focus", read);
+  }, [pathname]);
+  useEffect(() => {
+    const readCart = () => {
+      try {
+        const cart = JSON.parse(localStorage.getItem("akg_cart") || "[]");
+        setCartCount(cart.reduce((t: number, c: any) => t + (Number(c.qty) || 0), 0));
+      } catch { setCartCount(0); }
+    };
+    readCart();
+    window.addEventListener("focus", readCart);
+    window.addEventListener("storage", readCart);
+    return () => {
+      window.removeEventListener("focus", readCart);
+      window.removeEventListener("storage", readCart);
+    };
   }, [pathname]);
   useEffect(() => { const s = localStorage.getItem("akg_lang"); if (s === "en" || s === "hi") setLang(s); }, []);
   const change = (l: Lang) => { setLang(l); localStorage.setItem("akg_lang", l); };
@@ -33,15 +49,15 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
         <div className="max-w-md mx-auto px-4 py-2.5 flex items-center gap-3">
           <img src="/logo.png" alt="Aashirwad Kachchar logo" className="w-11 h-11 rounded-full bg-white object-cover shadow" />
           <div className="flex-1">
-            <h1 className="font-bold text-lg leading-tight">{lang === "hi" ? "आशीर्वाद कच्चर" : "Aashirwad Kachchar"}</h1>
-            <p className="text-[11px] opacity-90">{lang === "hi" ? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</p>
+            <h1 className="font-bold text-lg leading-tight">{lang === "hi"? "आशीर्वाद कच्चर" : "Aashirwad Kachchar"}</h1>
+            <p className="text-[11px] opacity-90">{lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</p>
           </div>
-                    <Link href="/orders" className="bg-white/25 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap">
+          <Link href="/orders" className="bg-white/25 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap">
             {customer? "👤 " + String(customer.name).split(" ")[0] : "🔑 " + (lang === "hi"? "लॉगिन" : "Login")}
           </Link>
-          <button onClick={() => change(lang === "hi" ? "en" : "hi")} className="bg-white/25 rounded-full p-1 text-xs font-bold flex items-center" aria-label="Language toggle">
-            <span className={"px-2 py-0.5 rounded-full " + (lang === "hi" ? "bg-white text-orange-600" : "text-white")}>हिं</span>
-            <span className={"px-2 py-0.5 rounded-full " + (lang === "en" ? "bg-white text-orange-600" : "text-white")}>EN</span>
+          <button onClick={() => change(lang === "hi"? "en" : "hi")} className="bg-white/25 rounded-full p-1 text-xs font-bold flex items-center" aria-label="Language toggle">
+            <span className={"px-2 py-0.5 rounded-full " + (lang === "hi"? "bg-white text-orange-600" : "text-white")}>हिं</span>
+            <span className={"px-2 py-0.5 rounded-full " + (lang === "en"? "bg-white text-orange-600" : "text-white")}>EN</span>
           </button>
         </div>
       </header>
@@ -51,8 +67,16 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
           {nav.map((n) => {
             const active = pathname === n.href;
             return (
-              <Link key={n.href} href={n.href} className={"py-2.5 font-semibold " + (active ? "text-orange-600" : "text-gray-500")}>
-                <span className="text-xl">{n.icon}</span><br />{lang === "hi" ? n.hi : n.en}
+              <Link key={n.href} href={n.href} className={"py-2.5 font-semibold " + (active? "text-orange-600" : "text-gray-500")}>
+                <span className="relative inline-block text-xl">
+                  {n.icon}
+                  {n.href === "/cart" && cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                      {cartCount > 99? "99+" : cartCount}
+                    </span>
+                  )}
+                </span>
+                <br />{lang === "hi"? n.hi : n.en}
               </Link>
             );
           })}
