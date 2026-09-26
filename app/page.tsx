@@ -115,7 +115,7 @@ export default function Home() {
         <div className="grid grid-cols-2 gap-3">{products.map((p) => (<div key={p.id} id={"prod-" + p.id} className="scroll-mt-24"><ProductCard p={p} rating={ratings[p.id]} /></div>))}</div>
       </div>
       <footer className="text-center pb-4">
-        <footer className="text-center text-xs text-gray-400 pb-4"><a href="/admin/setup" style={{color:"inherit",textDecoration:"none"}}>आशीर्वाद कच्चर</a> • {lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
+        <footer className="text-center text-xs text-gray-400 pb-4"><a href="/admin/setup" style={{color:"inherit",textDecoration:"none"}}>  • आशीर्वाद कच्चर • </a></footer>
         <p className="text-[10px] text-gray-400 mt-0.5">@app developed by -D&D Pvt. Ltd. Jodhpur</p>
       </footer>
     </div>
