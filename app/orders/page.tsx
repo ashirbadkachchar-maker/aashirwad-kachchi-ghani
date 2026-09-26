@@ -5,6 +5,15 @@ import { useLang } from "../components/SiteChrome";
 const STATUS_HI: Record<string, string> = { placed: "ऑर्डर मिल गया", packed: "पैक हो गया", shipped: "रास्ते में है", delivered: "डिलीवर हो गया", cancelled: "रद्द हो गया" };
 const STATUS_EN: Record<string, string> = { placed: "Order placed", packed: "Packed", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" };
 const STEPS = ["placed", "packed", "shipped", "delivered"];
+const NORM = (t: string) => {
+  const s = (t || "").toLowerCase();
+  if (s.includes("mustard") || s.includes("sarso") || s.includes("sarson")) return "mustard";
+  if (s.includes("peanut") || s.includes("moongfali") || s.includes("mungfali")) return "peanut";
+  if (s.includes("gud")) return "gud";
+  if (s.includes("cheeni") || s.includes("chini")) return "cheeni";
+  if (s.includes("sesame") || s.includes("til")) return "sesame";
+  return s.trim();
+};
 export default function OrdersPage() {
   const { lang } = useLang();
   const [customer, setCustomer] = useState<any>(null);
@@ -45,18 +54,41 @@ export default function OrdersPage() {
   };
   const submitReview = async (oid: string) => {
     const s = stars[oid] || 0;
-    if (!s || !customer) return;
+    if (!s ||!customer) return;
     setSavingReview(true);
-    const { error } = await supabase.from("feedback").insert({
+    let orderItems = items[oid] || [];
+    if (orderItems.length === 0) {
+      const { data } = await supabase.from("order_items").select("product_name, pack_size_kg, qty, price").eq("order_id", oid);
+      orderItems = data || [];
+    }
+    const { data: prods } = await supabase.from("products").select("id, oil_type");
+    const txt = (reviewText[oid] || "").trim();
+    const rows = orderItems.map((it: any) => {
+      const base = NORM(String(it.product_name || ""));
+      const match = (prods || []).find((p: any) => NORM(String(p.oil_type)) === base);
+      const pname = `${it.product_name || ""}${it.pack_size_kg? ` (${it.pack_size_kg}kg)` : ""}`.trim();
+      return {
+        customer_name: customer.name,
+        rating: s,
+        review: pname? `[${pname}] ${txt}` : txt,
+        product_id: match? match.id : null,
+        is_public: true,
+      };
+    });
+    const toInsert = rows.length > 0? rows : [{
       customer_name: customer.name,
       rating: s,
-      review: reviewText[oid] || "",
+      review: txt,
+      product_id: null,
       is_public: true,
-    });
+    }];
+    const { error } = await supabase.from("feedback").insert(toInsert);
     setSavingReview(false);
     if (!error) {
       localStorage.setItem("akg_reviewed_" + oid, "1");
       setReviewed((p) => ({...p, [oid]: true}));
+    } else {
+      alert("Review save nahi hua, phir try karo");
     }
   };
   const S = lang === "hi"? STATUS_HI : STATUS_EN;
@@ -92,18 +124,18 @@ export default function OrdersPage() {
                 {(items[o.id] || []).map((it, j) => (<p key={j} className="text-xs text-gray-600">{it.product_name} ({it.pack_size_kg}kg) × {it.qty} — ₹{it.price * it.qty}</p>))}
                 <p className="text-xs text-gray-500">📍 {o.shipping_address}</p>
                 <div className="pt-2 mt-1 border-t border-amber-100">
-                  {reviewed[o.id] ? (
+                  {reviewed[o.id]? (
                     <p className="text-center text-green-600 font-bold text-sm py-1">🙏 Review ke liye dhanyavaad!</p>
                   ) : (
                     <div className="space-y-2 py-1">
                       <p className="font-bold text-sm text-center">Apna review do ⭐</p>
                       <div className="flex justify-center gap-1">
                         {[1,2,3,4,5].map((s) => (
-                          <button key={s} onClick={() => setStars((p) => ({...p, [o.id]: s}))} className="text-3xl">{s <= (stars[o.id] || 0) ? "⭐" : "☆"}</button>
+                          <button key={s} onClick={() => setStars((p) => ({...p, [o.id]: s}))} className="text-3xl">{s <= (stars[o.id] || 0)? "⭐" : "☆"}</button>
                         ))}
                       </div>
                       <input value={reviewText[o.id] || ""} onChange={(e) => setReviewText((p) => ({...p, [o.id]: e.target.value}))} placeholder="Kuch kehna ho to likho (optional)" className="w-full border rounded-xl p-2 text-sm" />
-                      <button onClick={() => submitReview(o.id)} disabled={!(stars[o.id] > 0) || savingReview} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50">{savingReview ? "Ruko..." : "Review Bhejo"}</button>
+                      <button onClick={() => submitReview(o.id)} disabled={!(stars[o.id] > 0) || savingReview} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50">{savingReview? "Ruko..." : "Review Bhejo"}</button>
                     </div>
                   )}
                 </div>
