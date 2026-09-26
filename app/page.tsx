@@ -70,7 +70,7 @@ export default function Home() {
       const { data: prods } = await supabase.from("products").select("id, oil_type");
       const idToBase: Record<string, string> = {}; (prods || []).forEach((pd: any) => { idToBase[pd.id] = NORM(String(pd.oil_type)); });
       const agg: Record<string, { sum: number; count: number }> = {};
-      (fb || []).forEach((f: any) => { const base = idToBase[f.product_id]; if (!base) return; if (!agg[base]) agg[base] = { sum: 0, count: 0 }; agg[base].sum += Number(f.rating)||0; agg[base].count+=1; });
+      (fb || []).forEach((f: any) => { const base = idToBase[f.product_id]; if (!base) return; if (!agg[base]) agg[base] = { sum: 0, count: 0 }; agg[base].sum += Number(f.rating) || 0; agg[base].count += 1; });
       const out: Record<string, { avg: number; count: number }> = {}; Object.keys(agg).forEach((k) => { out[k] = { avg: agg[k].sum / agg[k].count, count: agg[k].count }; }); setRatings(out);
     };
     loadPrices(); loadRatings();
@@ -78,7 +78,7 @@ export default function Home() {
     return () => { supabase.removeChannel(ch); };
   }, []);
   const FAYDE = lang === "hi"
- ? [{ icon: "❤️", title: "100% शुद्ध & प्राकृतिक", sub: "कोई प्रिजर्वेटिव नहीं • कोल्ड प्रेस्ड" }, { icon: "🌿", title: "ओमेगा-3 से भरपूर", sub: "दिल व इम्यूनिटी के लिए अच्छा" }]
+? [{ icon: "❤️", title: "100% शुद्ध & प्राकृतिक", sub: "कोई प्रिजर्वेटिव नहीं • कोल्ड प्रेस्ड" }, { icon: "🌿", title: "ओमेगा-3 से भरपूर", sub: "दिल व इम्यूनिटी के लिए अच्छा" }]
     : [{ icon: "❤️", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "🌿", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
   return (
     <div className="px-4 py-4 space-y-5">
