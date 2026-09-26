@@ -16,6 +16,9 @@ export default function OrdersPage() {
   const { lang } = useLang();
   const [customer, setCustomer] = useState<any>(null);
   const [mobile, setMobile] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginStep, setLoginStep] = useState<"mobile" | "login" | "setpass">("mobile");
+  const [checking, setChecking] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [items, setItems] = useState<Record<string, any[]>>({});
@@ -34,15 +37,50 @@ export default function OrdersPage() {
     const { data } = await supabase.from("orders").select("id, order_no, total_amount, order_status, created_at, shipping_address").eq("customer_id", cid).order("created_at", { ascending: false });
     if (data) setOrders(data);
   };
-  const login = async () => {
+  const authApi = async (body: any) => {
+    const res = await fetch("/api/customer-auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await res.json();
+    return { ok: res.ok, d };
+  };
+  const checkMobile = async () => {
     setErr("");
     if (!/^[0-9]{10}$/.test(mobile.trim())) { setErr(lang === "hi"? "10 digit ka mobile number likho" : "Enter 10-digit mobile"); return; }
-    const { data } = await supabase.from("customers").select("id, name, mobile").eq("mobile", mobile.trim()).single();
-    if (!data) { setErr(lang === "hi"? "Is mobile se koi order nahi mila" : "No orders found"); return; }
-    localStorage.setItem("akg_customer", JSON.stringify(data));
-    setCustomer(data); loadOrders(data.id);
+    setChecking(true);
+    try {
+      const { ok, d } = await authApi({ action: "check", mobile: mobile.trim() });
+      if (!ok) { setErr(d.error || "Check nahi ho paya"); return; }
+      if (!d.exists) { setErr(lang === "hi"? "Is mobile se koi order nahi mila" : "No orders found"); return; }
+      setPassword("");
+      setLoginStep(d.hasPassword? "login" : "setpass");
+    } catch { setErr("Network error. Phir try karo."); }
+    finally { setChecking(false); }
   };
-  const logout = () => { localStorage.removeItem("akg_customer"); setCustomer(null); setOrders([]); setMobile(""); setOpenId(null); setStars({}); setReviewText({}); setReviewed({}); setTrackOpen({}); setTrackEvents({}); };
+  const doLogin = async () => {
+    setErr("");
+    if (password.length < 4) { setErr(lang === "hi"? "Password likho" : "Enter password"); return; }
+    setChecking(true);
+    try {
+      const { ok, d } = await authApi({ action: "login", mobile: mobile.trim(), password });
+      if (!ok) { setErr(d.error || "Login failed"); return; }
+      localStorage.setItem("akg_customer", JSON.stringify(d.customer));
+      setCustomer(d.customer); loadOrders(d.customer.id);
+    } catch { setErr("Network error. Phir try karo."); }
+    finally { setChecking(false); }
+  };
+  const doSetPassword = async () => {
+    setErr("");
+    if (password.length < 4) { setErr(lang === "hi"? "Password kam se kam 4 akshar ka rakho" : "Password must be 4+ characters"); return; }
+    setChecking(true);
+    try {
+      const { ok, d } = await authApi({ action: "set_password", mobile: mobile.trim(), password });
+      if (!ok) { setErr(d.error || "Password set nahi hua"); return; }
+      localStorage.setItem("akg_customer", JSON.stringify(d.customer));
+      setCustomer(d.customer); loadOrders(d.customer.id);
+    } catch { setErr("Network error. Phir try karo."); }
+    finally { setChecking(false); }
+  };
+  const backToMobile = () => { setLoginStep("mobile"); setPassword(""); setErr(""); };
+  const logout = () => { localStorage.removeItem("akg_customer"); setCustomer(null); setOrders([]); setMobile(""); setPassword(""); setLoginStep("mobile"); setOpenId(null); setStars({}); setReviewText({}); setReviewed({}); setTrackOpen({}); setTrackEvents({}); };
   const toggleItems = async (oid: string) => {
     if (openId === oid) { setOpenId(null); return; }
     setOpenId(oid);
@@ -53,9 +91,9 @@ export default function OrdersPage() {
     }
   };
   const toggleTracking = async (oid: string) => {
-    const open = !trackOpen[oid];
+    const open =!trackOpen[oid];
     setTrackOpen((p) => ({...p, [oid]: open}));
-    if (open && !trackEvents[oid]) {
+    if (open &&!trackEvents[oid]) {
       const { data } = await supabase.from("tracking_events").select("*").eq("order_id", oid).order("created_at", { ascending: true });
       setTrackEvents((p) => ({...p, [oid]: data || []}));
     }
@@ -99,9 +137,23 @@ export default function OrdersPage() {
       <div className="px-4 py-8 space-y-4">
         <h2 className="text-lg font-bold">📦 {lang === "hi"? "Mere Orders" : "My Orders"}</h2>
         <div className="bg-white rounded-2xl p-4 shadow border border-amber-100 space-y-2">
-          <p className="text-sm text-gray-600">{lang === "hi"? "Apna mobile number daalo — saare orders yahin dikhenge" : "Enter mobile to see all orders here"}</p>
-          <input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="Mobile (10 digit)" maxLength={10} inputMode="numeric" className="w-full border rounded-xl p-2" />
-          <button onClick={login} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold">{lang === "hi"? "Login Karo 🔑" : "Login 🔑"}</button>
+          {loginStep === "mobile" && (<>
+            <p className="text-sm text-gray-600">{lang === "hi"? "Apna mobile number daalo — saare orders yahin dikhenge" : "Enter mobile to see all orders here"}</p>
+            <input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="Mobile (10 digit)" maxLength={10} inputMode="numeric" className="w-full border rounded-xl p-2" />
+            <button onClick={checkMobile} disabled={checking} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold disabled:opacity-50">{checking? "..." : (lang === "hi"? "Aage ➡️" : "Next ➡️")}</button>
+          </>)}
+          {loginStep === "login" && (<>
+            <p className="text-sm text-gray-600">📱 {mobile} — {lang === "hi"? "apna password daalo" : "enter your password"}</p>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full border rounded-xl p-2" />
+            <button onClick={doLogin} disabled={checking} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold disabled:opacity-50">{checking? "..." : (lang === "hi"? "Login Karo 🔑" : "Login 🔑")}</button>
+            <button onClick={backToMobile} className="w-full text-xs text-gray-500">← {lang === "hi"? "Mobile badlo" : "Change mobile"}</button>
+          </>)}
+          {loginStep === "setpass" && (<>
+            <p className="text-sm text-gray-600">📱 {mobile} — {lang === "hi"? "pehli baar login hai, apna password banao (min 4 akshar)" : "first login — create your password (min 4 chars)"}</p>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={lang === "hi"? "Naya password" : "New password"} className="w-full border rounded-xl p-2" />
+            <button onClick={doSetPassword} disabled={checking} className="w-full bg-green-600 text-white rounded-xl py-2 font-bold disabled:opacity-50">{checking? "..." : (lang === "hi"? "Password Banao ✅" : "Set Password ✅")}</button>
+            <button onClick={backToMobile} className="w-full text-xs text-gray-500">← {lang === "hi"? "Mobile badlo" : "Change mobile"}</button>
+          </>)}
           {err && <p className="text-red-500 text-sm">{err}</p>}
         </div>
       </div>
@@ -121,7 +173,7 @@ export default function OrdersPage() {
               <div className="flex justify-between items-center"><p className="font-bold text-sm">{o.order_no}</p><span className={`text-xs font-bold px-2 py-0.5 rounded-full ${o.order_status === "delivered"? "bg-green-100 text-green-700" : o.order_status === "cancelled"? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>{S[o.order_status] || o.order_status}</span></div>
               <p className="text-xs text-gray-500 mt-0.5">{new Date(o.created_at).toLocaleDateString("en-IN")} • ₹{o.total_amount}</p>
             </button>
-            {o.order_status!== "cancelled" && (<div className="flex items-center mt-2 mb-1">{STEPS.map((s, i) => (<div key={s} className="flex-1 flex items-center"><div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${i <= stepIdx? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}>{i <= stepIdx? "✓" : i + 1}</div>{i < STEPS.length - 1 && <div className={`flex-1 h-1 mx-0.5 rounded ${i < stepIdx? "bg-green-500" : "bg-gray-200"}`} />}</div>))}</div>)}
+            {o.order_status!== "cancelled" && (<div className="flex items-center mt-2 mb-1">{STEPS.map((s, i) => (<div key={s} className="flex-1 flex items-center"><div className={`w-5 h-5 rounded-full flex items-center justify-center text- font-bold ${i <= stepIdx? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}>{i <= stepIdx? "✓" : i + 1}</div>{i < STEPS.length - 1 && <div className={`flex-1 h-1 mx-0.5 rounded ${i < stepIdx? "bg-green-500" : "bg-gray-200"}`} />}</div>))}</div>)}
             {openId === o.id && (
               <div className="mt-2 pt-2 border-t border-amber-100 space-y-1">
                 {(items[o.id] || []).map((it, j) => (<p key={j} className="text-xs text-gray-600">{it.product_name} ({it.pack_size_kg}kg) × {it.qty} — ₹{it.price * it.qty}</p>))}
@@ -142,7 +194,7 @@ export default function OrdersPage() {
                           <div className="pb-3">
                             <p className={`font-bold text-xs ${i <= trackIdx? "text-green-700" : "text-gray-400"}`}>{lang === "hi"? s.hi : s.en}</p>
                             {evs.map((e) => (
-                              <p key={e.id} className="text-[11px] text-gray-500">{new Date(e.created_at).toLocaleString("en-IN")}{e.note? ` • ${e.note}` : ""}</p>
+                              <p key={e.id} className="text- text-gray-500">{new Date(e.created_at).toLocaleString("en-IN")}{e.note? ` • ${e.note}` : ""}</p>
                             ))}
                           </div>
                         </div>
