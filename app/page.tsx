@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useLang } from "./components/SiteChrome";
-type Review = { id: string; customer_name: string; rating: number; review: string };
 type SizeOpt = { kg: number; price: number };
 type Prod = { id: string; img: string; nameHi: string; nameEn: string; sizes: SizeOpt[] };
 const PRODUCTS: Prod[] = [
@@ -39,10 +38,7 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
       <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl mb-2" />
       <h3 className="font-bold text-sm">{lang === "hi"? p.nameHi : p.nameEn}</h3>
       {stars > 0? (
-        <p className="text-xs mt-0.5">
-          <span className="text-amber-500 font-bold">{"★".repeat(stars)}{"☆".repeat(5 - stars)}</span>
-          <span className="text-gray-500"> {rating!.avg.toFixed(1)} ({rating!.count})</span>
-        </p>
+        <p className="text-xs mt-0.5"><span className="text-amber-500 font-bold">{"★".repeat(stars)}{"☆".repeat(5 - stars)}</span><span className="text-gray-500"> {rating!.avg.toFixed(1)} ({rating!.count})</span></p>
       ) : (
         <p className="text- text-gray-400 mt-0.5">☆☆☆☆☆ {lang === "hi"? "नया" : "New"}</p>
       )}
@@ -58,66 +54,32 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
 }
 export default function Home() {
   const { lang } = useLang();
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [products, setProducts] = useState<Prod[]>(PRODUCTS);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
-  const [myOrders, setMyOrders] = useState<any[]>([]);
-  const [custMobile, setCustMobile] = useState("");
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("feedback").select("*").eq("is_public", true).order("created_at", { ascending: false }).limit(10);
-      if (data) setReviews(data);
-    })();
     const loadPrices = async () => {
       const { data: db } = await supabase.from("products").select("oil_type, pack_size_kg, price").eq("is_active", true);
       if (db && db.length > 0) {
-        setProducts(
-          PRODUCTS.map((base) => ({
-         ...base,
-            sizes: base.sizes.map((sz) => {
-              const match = (db as any[]).find((d: any) => NORM(String(d.oil_type)) === base.id && Number(d.pack_size_kg) === sz.kg);
-              return match? {...sz, price: Number(match.price) } : sz;
-            }),
-          }))
-        );
+        setProducts(PRODUCTS.map((base) => ({...base, sizes: base.sizes.map((sz) => {
+          const match = (db as any[]).find((d: any) => NORM(String(d.oil_type)) === base.id && Number(d.pack_size_kg) === sz.kg);
+          return match? {...sz, price: Number(match.price) } : sz; }), })));
       }
     };
-    loadPrices();
     const loadRatings = async () => {
       const { data: fb } = await supabase.from("feedback").select("product_id, rating").eq("is_public", true).not("product_id", "is", null);
       const { data: prods } = await supabase.from("products").select("id, oil_type");
-      const idToBase: Record<string, string> = {};
-      (prods || []).forEach((pd: any) => { idToBase[pd.id] = NORM(String(pd.oil_type)); });
+      const idToBase: Record<string, string> = {}; (prods || []).forEach((pd: any) => { idToBase[pd.id] = NORM(String(pd.oil_type)); });
       const agg: Record<string, { sum: number; count: number }> = {};
-      (fb || []).forEach((f: any) => {
-        const base = idToBase[f.product_id];
-        if (!base) return;
-        if (!agg[base]) agg[base] = { sum: 0, count: 0 };
-        agg[base].sum += Number(f.rating) || 0;
-        agg[base].count += 1;
-      });
-      const out: Record<string, { avg: number; count: number }> = {};
-      Object.keys(agg).forEach((k) => { out[k] = { avg: agg[k].sum / agg[k].count, count: agg[k].count }; });
-      setRatings(out);
+      (fb || []).forEach((f: any) => { const base = idToBase[f.product_id]; if (!base) return; if (!agg[base]) agg[base] = { sum: 0, count: 0 }; agg[base].sum += Number(f.rating)||0; agg[base].count+=1; });
+      const out: Record<string, { avg: number; count: number }> = {}; Object.keys(agg).forEach((k) => { out[k] = { avg: agg[k].sum / agg[k].count, count: agg[k].count }; }); setRatings(out);
     };
-    loadRatings();
-    // login customer ke saare orders
-    const s = localStorage.getItem("akg_customer");
-    if (s) {
-      try {
-        const c = JSON.parse(s);
-        if (c.mobile) {
-          setCustMobile(c.mobile);
-          supabase.from("orders").select("id, order_no, total_amount, order_status, created_at").eq("customer_mobile", c.mobile).order("created_at", { ascending: false }).limit(10).then(({ data }) => { if (data) setMyOrders(data); });
-        }
-      } catch {}
-    }
+    loadPrices(); loadRatings();
     const ch = supabase.channel("admin-price-live").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => loadPrices()).subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
   const FAYDE = lang === "hi"
- ? [{ icon: "❤", title: "100% शुद्ध & प्राकृतिक", sub: "कोई प्रिजर्वेटिव नहीं • कोल्ड प्रेस्ड" }, { icon: "🌿", title: "ओमेगा-3 से भरपूर", sub: "दिल व इम्यूनिटी के लिए अच्छा" }]
-    : [{ icon: "❤", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "🌿", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
+ ? [{ icon: "❤️", title: "100% शुद्ध & प्राकृतिक", sub: "कोई प्रिजर्वेटिव नहीं • कोल्ड प्रेस्ड" }, { icon: "🌿", title: "ओमेगा-3 से भरपूर", sub: "दिल व इम्यूनिटी के लिए अच्छा" }]
+    : [{ icon: "❤️", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "🌿", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
   return (
     <div className="px-4 py-4 space-y-5">
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white flex items-center gap-4 shadow">
@@ -127,37 +89,15 @@ export default function Home() {
         </div>
         <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
       </div>
-      {custMobile && myOrders.length > 0 && (
-        <div>
-          <h2 className="text-base font-bold mb-2">📦 {lang === "hi"? "Mere Orders" : "My Orders"} ({myOrders.length})</h2>
-          <div className="space-y-2 max-h- overflow-y-auto pr-1">
-            {myOrders.map((o) => (
-              <a key={o.id} href={`/track?order_no=${o.order_no}`} className="bg-white rounded-2xl p-3 shadow border border-amber-100 flex justify-between items-center block">
-                <div><p className="font-bold text-sm">{o.order_no}</p><p className="text- text-gray-500">{new Date(o.created_at).toLocaleDateString("hi-IN")}</p></div>
-                <div className="text-right"><p className="font-bold text-sm text-green-700">₹{o.total_amount}</p><p className="text- px-2 py-0.5 rounded-full bg-amber-100 inline-block">{o.order_status}</p></div>
-              </a>
-            ))}
-          </div>
-          <a href="/orders" className="text-xs text-orange-600 font-bold mt-1 inline-block">{lang === "hi"? "Saare orders dekho →" : "View all orders →"}</a>
-        </div>
-      )}
       <div>
         <h2 className="text-base font-bold mb-2">{lang === "hi"? "तेल के फायदे" : "Oil Benefits"}</h2>
         <div className="grid grid-cols-2 gap-3">
-          {FAYDE.map((b) => (
-            <div key={b.title} className="bg-white rounded-2xl p-4 shadow border border-amber-100">
-              <div className="text-3xl mb-1">{b.icon}</div>
-              <h3 className="font-bold text-sm">{b.title}</h3>
-              <p className="text- text-gray-500 mt-0.5">{b.sub}</p>
-            </div>
-          ))}
+          {FAYDE.map((b) => (<div key={b.title} className="bg-white rounded-2xl p-4 shadow border border-amber-100"><div className="text-3xl mb-1">{b.icon}</div><h3 className="font-bold text-sm">{b.title}</h3><p className="text- text-gray-500 mt-0.5">{b.sub}</p></div>))}
         </div>
       </div>
       <div>
         <h2 className="text-base font-bold mb-2">Shop Products</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}
-        </div>
+        <div className="grid grid-cols-2 gap-3">{products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}</div>
       </div>
       <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
     </div>
