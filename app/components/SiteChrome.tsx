@@ -24,7 +24,7 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
   const nav = [
     { href: "/", icon: "\uD83C\uDFE0", hi: "होम", en: "Home" },
     { href: "/cart", icon: "\uD83D\uDED2", hi: "कार्ट", en: "Cart" },
-    { href: "/track", icon: "\uD83D\uDCE6", hi: "ट्रैक", en: "Track" },
+    { href: "/track", icon: "\uD83D\uDCE6", hi: "आर्डर", en: "Orders" },
     { href: "/feedback", icon: "⭐", hi: "रिव्यू", en: "Review" },
   ];
   return (
