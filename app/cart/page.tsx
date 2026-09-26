@@ -23,8 +23,32 @@ export default function Cart() {
   const [pincode, setPincode] = useState("");
   const [placing, setPlacing] = useState(false);
   const [done, setDone] = useState("");
+  const [custMsg, setCustMsg] = useState("");
+  useEffect(() => {
+    setCart(JSON.parse(localStorage.getItem("akg_cart") || "[]"));
+    const s = localStorage.getItem("akg_customer");
+    if (s) { const c = JSON.parse(s); setMobile(c.mobile || ""); if (c.mobile) fillCustomer(c.mobile); }
+  }, []);
 
-  useEffect(() => { setCart(JSON.parse(localStorage.getItem("akg_cart") || "[]")); }, []);
+  const fillCustomer = async (mob: string) => {
+    const { data } = await supabase.from("customers").select("name, address, city, pincode").eq("mobile", mob).single();
+    if (data) {
+      setName(data.name || ""); setAddress(data.address || ""); setCity(data.city || ""); setPincode(data.pincode || "");
+      setCustMsg("✅ Welcome back, " + (data.name || "") + "! Details bhar diye hain.");
+    }
+  };
+
+  const checkMobile = async () => {
+    setCustMsg("");
+    if (!/^[0-9]{10}$/.test(mobile)) { setCustMsg("⚠️ 10 digit ka mobile number likho"); return; }
+    const { data } = await supabase.from("customers").select("id, name, mobile").eq("mobile", mobile).single();
+    if (data) {
+      localStorage.setItem("akg_customer", JSON.stringify(data));
+      fillCustomer(mobile);
+    } else {
+      setCustMsg("🆕 Naya customer — neeche details bharke order karo.");
+    }
+  };
 
   const save = (c: CartItem[]) => { setCart(c); localStorage.setItem("akg_cart", JSON.stringify(c)); };
   const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
@@ -70,6 +94,7 @@ export default function Cart() {
       pack_size_kg: i.pack_size_kg, qty: i.qty, price: i.price,
     })));
     if (itemsErr) throw itemsErr;
+    localStorage.setItem("akg_customer", JSON.stringify({ id: customerId, name, mobile }));
     await supabase.from("tracking_events").insert({
       order_id: order.id, status: "placed", note: "Payment ho gaya. Order mil gaya hai.",
     });
@@ -162,7 +187,11 @@ export default function Cart() {
           <div className="bg-white rounded-2xl p-4 shadow border border-amber-100 space-y-2">
             <h3 className="font-bold">📍 Delivery Details</h3>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Aapka naam" className="w-full border rounded-xl p-2" />
-            <input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Mobile (10 digit)" maxLength={10} inputMode="numeric" className="w-full border rounded-xl p-2" />
+                       <div className="flex gap-2">
+              <input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Mobile (10 digit) — isi se login hoga" maxLength={10} inputMode="numeric" className="flex-1 border rounded-xl p-2" />
+              <button onClick={checkMobile} className="bg-orange-500 text-white rounded-xl px-3 font-bold text-sm whitespace-nowrap">🔍 Check</button>
+            </div>
+            {custMsg && <p className="text-xs text-gray-600">{custMsg}</p>}
             <textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="Poora address" className="w-full border rounded-xl p-2" />
             <div className="grid grid-cols-2 gap-2">
               <input value={city} onChange={e => setCity(e.target.value)} placeholder="City" className="border rounded-xl p-2" />
