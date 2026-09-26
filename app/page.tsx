@@ -40,14 +40,14 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
       {stars > 0? (
         <p className="text-xs mt-0.5"><span className="text-amber-500 font-bold">{"★".repeat(stars)}{"☆".repeat(5 - stars)}</span><span className="text-gray-500"> {rating!.avg.toFixed(1)} ({rating!.count})</span></p>
       ) : (
-        <p className="text- text-gray-400 mt-0.5">☆☆☆☆☆ {lang === "hi"? "नया" : "New"}</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">☆☆☆☆☆ {lang === "hi"? "नया" : "New"}</p>
       )}
       <div className="flex gap-1 mt-1.5 flex-wrap">
         {p.sizes.map((s, i) => (
-          <button key={s.kg} onClick={() => setSel(i)} className={"text- px-2 py-0.5 rounded-full border font-semibold " + (i === sel? "bg-orange-500 text-white border-orange-500" : "border-amber-300 text-amber-700")}>{s.kg}kg</button>
+          <button key={s.kg} onClick={() => setSel(i)} className={"text-[11px] px-2 py-0.5 rounded-full border font-semibold " + (i === sel? "bg-orange-500 text-white border-orange-500" : "border-amber-300 text-amber-700")}>{s.kg}kg</button>
         ))}
       </div>
-      <p className="mt-1.5 text-lg font-bold text-green-700">₹{size.price} <span className="text- font-semibold text-gray-500">{lang === "hi"? "ऑफर प्राइस" : "Offer Price"}</span></p>
+      <p className="mt-1.5 text-lg font-bold text-green-700">₹{size.price} <span className="text-[11px] font-semibold text-gray-500">{lang === "hi"? "ऑफर प्राइस" : "Offer Price"}</span></p>
       <button onClick={addToCart} className="mt-2 w-full text-sm bg-orange-500 text-white rounded-xl py-2 font-bold">Add</button>
     </div>
   );
@@ -92,7 +92,7 @@ export default function Home() {
       <div>
         <h2 className="text-base font-bold mb-2">{lang === "hi"? "तेल के फायदे" : "Oil Benefits"}</h2>
         <div className="grid grid-cols-2 gap-3">
-          {FAYDE.map((b) => (<div key={b.title} className="bg-white rounded-2xl p-4 shadow border border-amber-100"><div className="text-3xl mb-1">{b.icon}</div><h3 className="font-bold text-sm">{b.title}</h3><p className="text- text-gray-500 mt-0.5">{b.sub}</p></div>))}
+          {FAYDE.map((b) => (<div key={b.title} className="bg-white rounded-2xl p-4 shadow border border-amber-100"><div className="text-3xl mb-1">{b.icon}</div><h3 className="font-bold text-sm">{b.title}</h3><p className="text-[11px] text-gray-500 mt-0.5">{b.sub}</p></div>))}
         </div>
       </div>
       <div>
