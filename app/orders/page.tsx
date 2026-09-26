@@ -2,9 +2,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useLang } from "../components/SiteChrome";
-const STATUS_HI: Record<string, string> = { placed: "ऑर्डर मिल गया", packed: "पैक हो गया", shipped: "रास्ते में है", delivered: "डिलीवर हो गया", cancelled: "रद्द हो गया" };
-const STATUS_EN: Record<string, string> = { placed: "Order placed", packed: "Packed", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" };
-const STEPS = ["placed", "packed", "shipped", "delivered"];
+const STATUS_HI: Record<string, string> = { placed: "ऑर्डर मिल गया", packed: "पैक हो गया", dispatched: "भेज दिया", in_transit: "रास्ते में है", delivered: "डिलीवर हो गया", cancelled: "रद्द हो गया" };
+const STATUS_EN: Record<string, string> = { placed: "Order placed", packed: "Packed", dispatched: "Dispatched", in_transit: "In Transit", delivered: "Delivered", cancelled: "Cancelled" };
+const STEPS = ["placed", "packed", "dispatched", "in_transit", "delivered"];
+const TRACK_STEPS = [
+  { key: "placed", icon: "🧾", hi: "ऑर्डर मिल गया", en: "Order Placed" },
+  { key: "packed", icon: "📦", hi: "पैक हो गया", en: "Packed" },
+  { key: "dispatched", icon: "🚚", hi: "भेज दिया", en: "Dispatched" },
+  { key: "in_transit", icon: "🛣️", hi: "रास्ते में है", en: "In Transit" },
+  { key: "delivered", icon: "✅", hi: "पहुंच गया", en: "Delivered" },
+];
 export default function OrdersPage() {
   const { lang } = useLang();
   const [customer, setCustomer] = useState<any>(null);
@@ -17,6 +24,8 @@ export default function OrdersPage() {
   const [reviewText, setReviewText] = useState<Record<string, string>>({});
   const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
   const [savingReview, setSavingReview] = useState(false);
+  const [trackOpen, setTrackOpen] = useState<Record<string, boolean>>({});
+  const [trackEvents, setTrackEvents] = useState<Record<string, any[]>>({});
   useEffect(() => {
     const s = localStorage.getItem("akg_customer");
     if (s) { try { const c = JSON.parse(s); setCustomer(c); if(c.id) loadOrders(c.id); } catch {} }
@@ -33,7 +42,7 @@ export default function OrdersPage() {
     localStorage.setItem("akg_customer", JSON.stringify(data));
     setCustomer(data); loadOrders(data.id);
   };
-  const logout = () => { localStorage.removeItem("akg_customer"); setCustomer(null); setOrders([]); setMobile(""); setOpenId(null); setStars({}); setReviewText({}); setReviewed({}); };
+  const logout = () => { localStorage.removeItem("akg_customer"); setCustomer(null); setOrders([]); setMobile(""); setOpenId(null); setStars({}); setReviewText({}); setReviewed({}); setTrackOpen({}); setTrackEvents({}); };
   const toggleItems = async (oid: string) => {
     if (openId === oid) { setOpenId(null); return; }
     setOpenId(oid);
@@ -41,6 +50,14 @@ export default function OrdersPage() {
     if (!items[oid]) {
       const { data } = await supabase.from("order_items").select("product_id, product_name, pack_size_kg, qty, price").eq("order_id", oid);
       setItems((p) => ({...p, [oid]: data || [] }));
+    }
+  };
+  const toggleTracking = async (oid: string) => {
+    const open = !trackOpen[oid];
+    setTrackOpen((p) => ({...p, [oid]: open}));
+    if (open && !trackEvents[oid]) {
+      const { data } = await supabase.from("tracking_events").select("*").eq("order_id", oid).order("created_at", { ascending: true });
+      setTrackEvents((p) => ({...p, [oid]: data || []}));
     }
   };
   const submitReview = async (oid: string) => {
@@ -97,6 +114,7 @@ export default function OrdersPage() {
       {orders.length === 0 && <p className="text-sm text-gray-500">{lang === "hi"? "Abhi koi order nahi hai" : "No orders yet"}</p>}
       {orders.map((o) => {
         const stepIdx = STEPS.indexOf(o.order_status);
+        const trackIdx = TRACK_STEPS.findIndex((x) => x.key === o.order_status);
         return (
           <div key={o.id} className="bg-white rounded-2xl p-3 shadow border border-amber-100">
             <button onClick={() => toggleItems(o.id)} className="w-full text-left">
@@ -108,6 +126,30 @@ export default function OrdersPage() {
               <div className="mt-2 pt-2 border-t border-amber-100 space-y-1">
                 {(items[o.id] || []).map((it, j) => (<p key={j} className="text-xs text-gray-600">{it.product_name} ({it.pack_size_kg}kg) × {it.qty} — ₹{it.price * it.qty}</p>))}
                 <p className="text-xs text-gray-500">📍 {o.shipping_address}</p>
+                <button onClick={() => toggleTracking(o.id)} className="w-full text-xs font-bold text-orange-600 py-1.5">
+                  📍 {lang === "hi"? "Tracking Dekho" : "View Tracking"} {trackOpen[o.id]? "▲" : "▼"}
+                </button>
+                {trackOpen[o.id] && (
+                  <div className="py-1">
+                    {TRACK_STEPS.map((s, i) => {
+                      const evs = (trackEvents[o.id] || []).filter((e) => e.status === s.key);
+                      return (
+                        <div key={s.key} className="flex gap-2">
+                          <div className="flex flex-col items-center">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${i <= trackIdx? "bg-green-100 border-2 border-green-500" : "bg-gray-100"}`}>{s.icon}</div>
+                            {i < TRACK_STEPS.length - 1 && <div className={`w-0.5 ${i < trackIdx? "bg-green-500" : "bg-gray-200"}`} style={{ minHeight: 14 }} />}
+                          </div>
+                          <div className="pb-3">
+                            <p className={`font-bold text-xs ${i <= trackIdx? "text-green-700" : "text-gray-400"}`}>{lang === "hi"? s.hi : s.en}</p>
+                            {evs.map((e) => (
+                              <p key={e.id} className="text-[11px] text-gray-500">{new Date(e.created_at).toLocaleString("en-IN")}{e.note? ` • ${e.note}` : ""}</p>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="pt-2 mt-1 border-t border-amber-100">
                   {reviewed[o.id]? (
                     <p className="text-center text-green-600 font-bold text-sm py-1">🙏 Review ke liye dhanyavaad!</p>
