@@ -21,33 +21,56 @@ export default function Cart() {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [pincode, setPincode] = useState("");
+  const [password, setPassword] = useState("");
+  const [custState, setCustState] = useState<null | { exists: boolean; hasPassword: boolean }>(null);
+  const [verified, setVerified] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [done, setDone] = useState("");
   const [custMsg, setCustMsg] = useState("");
   useEffect(() => {
     setCart(JSON.parse(localStorage.getItem("akg_cart") || "[]"));
     const s = localStorage.getItem("akg_customer");
-    if (s) { const c = JSON.parse(s); setMobile(c.mobile || ""); if (c.mobile) fillCustomer(c.mobile); }
+    if (s) { try { const c = JSON.parse(s); setMobile(c.mobile || ""); } catch {} }
   }, []);
 
-  const fillCustomer = async (mob: string) => {
-    const { data } = await supabase.from("customers").select("name, address, city, pincode").eq("mobile", mob).single();
-    if (data) {
-      setName(data.name || ""); setAddress(data.address || ""); setCity(data.city || ""); setPincode(data.pincode || "");
-      setCustMsg("✅ Welcome back, " + (data.name || "") + "! Details bhar diye hain.");
-    }
+  const authApi = async (body: any) => {
+    const res = await fetch("/api/customer-auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await res.json();
+    return { ok: res.ok, d };
   };
 
   const checkMobile = async () => {
     setCustMsg("");
+    setVerified(false);
+    setCustState(null);
     if (!/^[0-9]{10}$/.test(mobile)) { setCustMsg("⚠️ 10 digit ka mobile number likho"); return; }
-    const { data } = await supabase.from("customers").select("id, name, mobile").eq("mobile", mobile).single();
-    if (data) {
-      localStorage.setItem("akg_customer", JSON.stringify(data));
-      fillCustomer(mobile);
+    const { ok, d } = await authApi({ action: "check", mobile });
+    if (!ok) { setCustMsg("⚠️ " + (d.error || "Check nahi ho paya")); return; }
+    if (!d.exists) {
+      setCustState({ exists: false, hasPassword: false });
+      setCustMsg("🆕 Naya customer — neeche details + password bharke order karo.");
+    } else if (d.hasPassword) {
+      setCustState({ exists: true, hasPassword: true });
+      setCustMsg("👋 Welcome back, " + (d.name || "") + "! Apna password daalo taaki details bhar jayein.");
     } else {
-      setCustMsg("🆕 Naya customer — neeche details bharke order karo.");
+      setCustState({ exists: true, hasPassword: false });
+      setCustMsg("👋 Welcome back, " + (d.name || "") + "! Pehli baar password banao (min 4 akshar).");
     }
+  };
+
+  const verifyPassword = async () => {
+    if (password.length < 4) { setCustMsg("⚠️ Password kam se kam 4 akshar ka rakho"); return; }
+    const action = custState?.hasPassword? "login" : "set_password";
+    const { ok, d } = await authApi({ action, mobile, password });
+    if (!ok) { setCustMsg("⚠️ " + (d.error || "Password sahi nahi hai")); return; }
+    const p = await authApi({ action: "get_profile", mobile, password });
+    if (p.ok && p.d.profile) {
+      const pr = p.d.profile;
+      setName(pr.name || ""); setAddress(pr.address || ""); setCity(pr.city || ""); setPincode(pr.pincode || "");
+    }
+    localStorage.setItem("akg_customer", JSON.stringify(d.customer));
+    setVerified(true);
+    setCustMsg("✅ Password sahi! Details bhar diye hain.");
   };
 
   const save = (c: CartItem[]) => { setCart(c); localStorage.setItem("akg_cart", JSON.stringify(c)); };
@@ -55,15 +78,18 @@ export default function Cart() {
 
   // Payment verify hone KE BAAD hi order Supabase me save hoga
   const saveToSupabase = async (razorpayPaymentId: string) => {
+    if (!custState) throw new Error("Pehle mobile likh ke Check dabao");
+    if (!custState.exists && password.length < 4) throw new Error("Naya password banao (min 4 akshar)");
+    if (custState.exists &&!verified) throw new Error("Pehle password verify karo");
     let customerId: string | null = null;
-    const { data: existing } = await supabase.from("customers").select("id").eq("mobile", mobile).single();
-    if (existing) {
-      customerId = existing.id;
-      await supabase.from("customers").update({ name, address, city, pincode }).eq("id", customerId);
+    if (!custState.exists) {
+      const { ok, d } = await authApi({ action: "register", mobile, name, password, address, city, pincode });
+      if (!ok) throw new Error(d.error || "Customer banane me error");
+      customerId = d.customer.id;
     } else {
-      const { data: ins, error } = await supabase.from("customers").insert({ name, mobile, address, city, pincode }).select("id").single();
-      if (error) throw error;
-      customerId = ins.id;
+      const { ok, d } = await authApi({ action: "update_profile", mobile, password, name, address, city, pincode });
+      if (!ok) throw new Error(d.error || "Profile update me error");
+      customerId = d.customer.id;
     }
     const { data: order, error: oErr } = await supabase.from("orders").insert({
       customer_id: customerId, customer_name: name, customer_mobile: mobile,
@@ -107,6 +133,9 @@ export default function Cart() {
     if (!name.trim()) return alert("Naam likho");
     if (!/^[0-9]{10}$/.test(mobile)) return alert("10 digit ka mobile number likho");
     if (!address.trim()) return alert("Address likho");
+    if (!custState) return alert("Pehle mobile number likh ke 🔍 Check dabao");
+    if (!custState.exists && password.length < 4) return alert("Naya password banao (min 4 akshar)");
+    if (custState.exists &&!verified) return alert("Pehle password verify karo (✅ Verify dabao)");
     setPlacing(true);
     try {
       const ok = await loadRazorpay();
@@ -174,7 +203,7 @@ export default function Cart() {
             <button onClick={() => { const c = [...cart]; c[idx].qty = Math.max(1, c[idx].qty - 1); save(c); }} className="w-8 h-8 rounded-full bg-amber-100 font-bold">−</button>
             <span className="font-bold">{i.qty}</span>
             <button onClick={() => { const c = [...cart]; c[idx].qty += 1; save(c); }} className="w-8 h-8 rounded-full bg-amber-100 font-bold">+</button>
-            <button onClick={() => save(cart.filter((_, j) => j !== idx))} className="ml-1">🗑️</button>
+            <button onClick={() => save(cart.filter((_, j) => j!== idx))} className="ml-1">🗑️</button>
           </div>
         </div>
       ))}
@@ -188,9 +217,15 @@ export default function Cart() {
             <h3 className="font-bold">📍 Delivery Details</h3>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Aapka naam" className="w-full border rounded-xl p-2" />
                        <div className="flex gap-2">
-              <input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Mobile (10 digit) — isi se login hoga" maxLength={10} inputMode="numeric" className="flex-1 border rounded-xl p-2" />
+              <input value={mobile} onChange={e => { setMobile(e.target.value); setCustState(null); setVerified(false); }} placeholder="Mobile (10 digit) — isi se login hoga" maxLength={10} inputMode="numeric" className="flex-1 border rounded-xl p-2" />
               <button onClick={checkMobile} className="bg-orange-500 text-white rounded-xl px-3 font-bold text-sm whitespace-nowrap">🔍 Check</button>
             </div>
+            {custState && (
+              <div className="flex gap-2">
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={custState.exists? (custState.hasPassword? "Apna password daalo" : "Naya password banao (min 4 akshar)") : "Password banao (min 4 akshar)"} className="flex-1 border rounded-xl p-2" />
+                {custState.exists &&!verified && <button onClick={verifyPassword} className="bg-green-600 text-white rounded-xl px-3 font-bold text-sm whitespace-nowrap">✅ Verify</button>}
+              </div>
+            )}
             {custMsg && <p className="text-xs text-gray-600">{custMsg}</p>}
             <textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="Poora address" className="w-full border rounded-xl p-2" />
             <div className="grid grid-cols-2 gap-2">
@@ -199,7 +234,7 @@ export default function Cart() {
             </div>
           </div>
           <button onClick={payNow} disabled={placing} className="w-full bg-green-600 text-white rounded-2xl py-3 font-bold text-lg">
-            {placing ? "Payment ho raha hai..." : `💳 Payment Karo — ₹${total}`}
+            {placing? "Payment ho raha hai..." : `💳 Payment Karo — ₹${total}`}
           </button>
         </>
       )}
