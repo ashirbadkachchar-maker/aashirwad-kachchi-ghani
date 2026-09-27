@@ -36,15 +36,18 @@ export default function OwnerDashboard() {
   };
 
   const saveComm = async () => {
-    const v = Number(newComm);
-    if (isNaN(v) || v < 0) { alert("Sahi value dalo"); return; }
-    if (!confirm(`Har order par commission ₹${v} set karein?`)) return;
-    const { error } = await supabase.from("platform_settings")
-     .update({ value: String(v), updated_at: new Date().toISOString() })
-     .eq("key", "commission_per_order");
-    if (error) alert("Error: " + error.message);
-    else alert("✅ Commission save ho gaya — ab se har order par ₹" + v);
-  };
+  const v = Number(newComm);
+  if (isNaN(v) || v < 0) { alert("Sahi value dalo"); return; }
+  if (!confirm(`Har order par commission ₹${v} set karein?`)) return;
+  const res = await fetch("/api/owner/set-commission", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value: v, pin: sessionStorage.getItem("owner_pin") || "" }),
+  });
+  const j = await res.json();
+  if (!res.ok) alert("Error: " + (j.error || "failed"));
+  else alert("✅ Commission save ho gaya — ab se har order par ₹" + v);
+};
 
   const logout = () => { sessionStorage.removeItem("owner_ok"); setLoggedIn(false); };
 
