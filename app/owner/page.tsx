@@ -119,11 +119,12 @@ export default function OwnerDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f4fa] pb-24">
+    <div className="h-[100dvh] print:h-auto flex flex-col overflow-hidden print:overflow-visible bg-[#f4f4fa]">
       <style>{`@media print {.no-print { display: none!important; } body { background: #fff; } }`}</style>
 
-      <div className="max-w-md mx-auto px-4 py-4 space-y-4">
-        <div className="no-print flex justify-between items-center">
+      <div className="max-w-md mx-auto w-full px-4 pt-4 pb-20 flex-1 min-h-0 flex flex-col">
+        {/* Title row — fixed */}
+        <div className="no-print flex justify-between items-center shrink-0">
           <div>
             <h2 className="text-lg font-bold text-indigo-900">💰 Commission Dashboard</h2>
             <p className="text-xs text-gray-500">Platform Owner • Sirf tumhare liye</p>
@@ -142,37 +143,42 @@ export default function OwnerDashboard() {
           <p className="text-xs text-gray-500">Aashirwad Kachchi Ghani • Platform Owner</p>
         </div>
 
-        {/* Beech ka dynamic card — title + amount + filter + buttons + table */}
-        <div className="bg-white rounded-2xl p-4 shadow border border-indigo-100">
-          <p className="text-sm font-bold text-center text-indigo-900">{tabTitle}</p>
-          <p className="text-3xl font-bold text-center text-green-700 my-1">{tabAmount}</p>
+        {/* Card — flex column, table bachi hui jagah lega */}
+        <div className="bg-white rounded-2xl p-4 shadow border border-indigo-100 mt-4 flex-1 min-h-0 flex flex-col">
+          <p className="text-sm font-bold text-center text-indigo-900 shrink-0">{tabTitle}</p>
+          <p className="text-3xl font-bold text-center text-green-700 my-1 shrink-0">{tabAmount}</p>
 
-          {/* Date filter — amount ke neeche, card ke andar (overlap fix) */}
-          <div className="no-print mt-2">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-end">
-              <label className="text-xs flex-1 min-w-0">From
+          {/* Date filter — From | To | Clear ek line me, barabar size */}
+          <div className="no-print mt-2 shrink-0">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="min-w-0">
+                <p className="text-xs mb-0.5">From</p>
                 <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                  className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
-              </label>
-              <label className="text-xs flex-1 min-w-0">To
+                  className="w-full min-w-0 block border rounded-lg p-1.5 text-xs" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs mb-0.5">To</p>
                 <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                  className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
-              </label>
-              <button onClick={() => { setFrom(""); setTo(""); }}
-                className="text-xs bg-gray-100 rounded-lg px-3 py-2 font-bold">Clear</button>
+                  className="w-full min-w-0 block border rounded-lg p-1.5 text-xs" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs mb-0.5">&nbsp;</p>
+                <button onClick={() => { setFrom(""); setTo(""); }}
+                  className="w-full text-xs bg-gray-100 rounded-lg p-1.5 font-bold">Clear</button>
+              </div>
             </div>
           </div>
 
-          {/* Excel / PDF — card ke andar */}
-          <div className="no-print flex gap-2 mt-2">
+          {/* Excel / PDF — fixed */}
+          <div className="no-print flex gap-2 mt-2 shrink-0">
             <button onClick={downloadCSV} className="flex-1 text-sm bg-green-100 text-green-700 rounded-xl px-3 py-2 font-bold">⬇️ Excel (CSV)</button>
             <button onClick={() => window.print()} className="flex-1 text-sm bg-indigo-100 text-indigo-700 rounded-xl px-3 py-2 font-bold">🖨️ PDF / Print</button>
           </div>
 
-          {/* Table — header fixed, body scroll */}
-          <div className="mt-2 border rounded-xl max-h-[420px] overflow-y-auto">
+          {/* Table — sirf body scroll, header sticky */}
+          <div className="mt-2 border rounded-xl flex-1 min-h-0 overflow-y-auto print:overflow-visible">
             <table className="w-full text-xs">
-              <thead className="sticky top-0"><tr className="bg-indigo-50 text-indigo-900">
+              <thead className="sticky top-0 z-10"><tr className="bg-indigo-50 text-indigo-900">
                 <th className="p-2 text-left">Date</th><th className="p-2 text-left">Order No</th>
                 <th className="p-2 text-right">Order ₹</th><th className="p-2 text-right">Comm. ₹</th>
               </tr></thead>
@@ -190,11 +196,9 @@ export default function OwnerDashboard() {
             </table>
           </div>
         </div>
-
-        <p className="no-print text-center text-[11px] text-gray-400 pb-6">🔒 Ye page kahin link nahi hai — sirf tumhe pata hai: <b>/owner</b></p>
       </div>
 
-      {/* Neeche 4 tabs — sirf naam, koi number nahi */}
+      {/* Neeche 4 tabs — fixed */}
       <div className="no-print fixed bottom-0 left-0 right-0 bg-white border-t flex shadow-lg z-40">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
