@@ -17,22 +17,22 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     if (sessionStorage.getItem("owner_ok") === "1") { setLoggedIn(true); load(); }
-  sessionStorage.setItem("owner_pin", opin);
   }, []);
 
   const login = () => {
     if (oid.trim() === OWNER_ID && opin === OWNER_PIN) {
       sessionStorage.setItem("owner_ok", "1");
+      sessionStorage.setItem("owner_pin", opin);
       setLoggedIn(true); setErr(""); load();
     } else setErr("❌ Galat ID ya PIN");
   };
 
   const load = async () => {
     const { data: s } = await supabase.from("platform_settings")
-     .select("value").eq("key", "commission_per_order").single();
+    .select("value").eq("key", "commission_per_order").single();
     if (s) setNewComm(s.value);
     const { data: c } = await supabase.from("commissions")
-     .select("*").order("created_at", { ascending: false }).limit(1000);
+    .select("*").order("created_at", { ascending: false }).limit(1000);
     setRows(c || []);
   };
 
@@ -50,8 +50,12 @@ export default function OwnerDashboard() {
   else alert("✅ Commission save ho gaya — ab se har order par ₹" + v);
 };
 
-  const logout = () => { sessionStorage.removeItem("owner_ok"); setLoggedIn(false); };
-sessionStorage.removeItem("owner_pin");
+  const logout = () => {
+    sessionStorage.removeItem("owner_ok");
+    sessionStorage.removeItem("owner_pin");
+    setLoggedIn(false);
+  };
+
   if (!loggedIn) return (
     <div className="min-h-screen flex items-center justify-center bg-[#1a1a2e] px-4">
       <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl">
