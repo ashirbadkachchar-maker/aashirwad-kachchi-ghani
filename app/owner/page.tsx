@@ -17,6 +17,7 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     if (sessionStorage.getItem("owner_ok") === "1") { setLoggedIn(true); load(); }
+  sessionStorage.setItem("owner_pin", opin);
   }, []);
 
   const login = () => {
@@ -50,7 +51,7 @@ export default function OwnerDashboard() {
 };
 
   const logout = () => { sessionStorage.removeItem("owner_ok"); setLoggedIn(false); };
-
+sessionStorage.removeItem("owner_pin");
   if (!loggedIn) return (
     <div className="min-h-screen flex items-center justify-center bg-[#1a1a2e] px-4">
       <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl">
