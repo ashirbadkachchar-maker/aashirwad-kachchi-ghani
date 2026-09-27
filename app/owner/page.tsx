@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 const OWNER_ID = "owner";
@@ -26,25 +26,9 @@ export default function OwnerDashboard() {
   const [to, setTo] = useState("");
   const [tab, setTab] = useState<TabKey>("total");
   const [showModal, setShowModal] = useState(false);
-  const loggedInRef = useRef(false);
-
-  useEffect(() => { loggedInRef.current = loggedIn; }, [loggedIn]);
-
-  // Commission value header ke liye localStorage me sync
-  useEffect(() => {
-    localStorage.setItem("akg_commission", commValue);
-  }, [commValue]);
 
   useEffect(() => {
     if (sessionStorage.getItem("owner_ok") === "1") { setLoggedIn(true); load(); }
-    // Header wale ⚙️ button se dialogue box kholo
-    const openModal = () => {
-      if (!loggedInRef.current) return;
-      setNewComm(localStorage.getItem("akg_commission") || "20");
-      setShowModal(true);
-    };
-    window.addEventListener("owner-open-commission-modal", openModal);
-    return () => window.removeEventListener("owner-open-commission-modal", openModal);
   }, []);
 
   const login = () => {
@@ -57,10 +41,10 @@ export default function OwnerDashboard() {
 
   const load = async () => {
     const { data: s } = await supabase.from("platform_settings")
-  .select("value").eq("key", "commission_per_order").single();
+ .select("value").eq("key", "commission_per_order").single();
     if (s) { setNewComm(s.value); setCommValue(String(s.value)); }
     const { data: c } = await supabase.from("commissions")
-  .select("*").order("created_at", { ascending: false }).limit(1000);
+ .select("*").order("created_at", { ascending: false }).limit(1000);
     setRows(c || []);
   };
 
@@ -78,7 +62,6 @@ export default function OwnerDashboard() {
     else {
       setCommValue(String(v));
       setShowModal(false);
-      window.dispatchEvent(new Event("owner-commission-updated"));
       alert("✅ Commission save ho gaya — ab se har order par ₹" + v);
     }
   };
@@ -145,7 +128,13 @@ export default function OwnerDashboard() {
             <h2 className="text-lg font-bold text-indigo-900">💰 Commission Dashboard</h2>
             <p className="text-xs text-gray-500">Platform Owner • Sirf tumhare liye</p>
           </div>
-          <button onClick={logout} className="text-xs bg-red-100 text-red-600 rounded-xl px-3 py-2 font-bold">Logout</button>
+          <div className="flex gap-2 items-center">
+            <button onClick={() => { setNewComm(commValue); setShowModal(true); }}
+              className="text-xs bg-indigo-100 text-indigo-700 rounded-xl px-3 py-2 font-bold">
+              ⚙️ ₹{commValue}
+            </button>
+            <button onClick={logout} className="text-xs bg-red-100 text-red-600 rounded-xl px-3 py-2 font-bold">Logout</button>
+          </div>
         </div>
 
         <div className="hidden print:block text-center mb-2">
