@@ -119,8 +119,15 @@ export default function OwnerDashboard() {
   };
 
   return (
-    <div className="h-[100dvh] print:h-auto flex flex-col overflow-hidden print:overflow-visible bg-[#f4f4fa]">
-      <style>{`@media print {.no-print { display: none!important; } body { background: #fff; } }`}</style>
+    <div className="owner-page flex flex-col overflow-hidden bg-[#f4f4fa]">
+      <style>{`
+       .owner-page { height: 100vh; height: 100dvh; }
+        @media print {
+         .no-print { display: none!important; }
+         .owner-page { height: auto!important; overflow: visible!important; }
+          body { background: #fff; }
+        }
+      `}</style>
 
       <div className="max-w-md mx-auto w-full px-4 pt-4 pb-20 flex-1 min-h-0 flex flex-col">
         {/* Title row — fixed */}
@@ -175,12 +182,14 @@ export default function OwnerDashboard() {
             <button onClick={() => window.print()} className="flex-1 text-sm bg-indigo-100 text-indigo-700 rounded-xl px-3 py-2 font-bold">🖨️ PDF / Print</button>
           </div>
 
-          {/* Table — sirf body scroll, header sticky */}
-          <div className="mt-2 border rounded-xl flex-1 min-h-0 overflow-y-auto print:overflow-visible">
+          {/* Table — header fixed (har th par sticky), sirf body scroll */}
+          <div className="mt-2 border rounded-xl flex-1 min-h-0 overflow-y-auto">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 z-10"><tr className="bg-indigo-50 text-indigo-900">
-                <th className="p-2 text-left">Date</th><th className="p-2 text-left">Order No</th>
-                <th className="p-2 text-right">Order ₹</th><th className="p-2 text-right">Comm. ₹</th>
+              <thead><tr className="text-indigo-900">
+                <th className="sticky top-0 z-10 bg-indigo-50 p-2 text-left">Date</th>
+                <th className="sticky top-0 z-10 bg-indigo-50 p-2 text-left">Order No</th>
+                <th className="sticky top-0 z-10 bg-indigo-50 p-2 text-right">Order ₹</th>
+                <th className="sticky top-0 z-10 bg-indigo-50 p-2 text-right">Comm. ₹</th>
               </tr></thead>
               <tbody>
                 {f.map((r) => (
@@ -199,12 +208,12 @@ export default function OwnerDashboard() {
       </div>
 
       {/* Neeche 4 tabs — fixed */}
-      <div className="no-print fixed bottom-0 left-0 right-0 bg-white border-t flex shadow-lg z-40">
+      <div className="no-print fixed bottom-0 left-0 right-0 bg-white border-t flex shadow-lg z-40" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex-1 py-2.5 text-center ${tab === t.key? "text-orange-600 font-bold" : "text-gray-500"}`}>
             <div className="text-xl">{t.icon}</div>
-            <div className="text-[11px] mt-0.5">{t.label}</div>
+            <div className="text- mt-0.5">{t.label}</div>
           </button>
         ))}
       </div>
@@ -216,7 +225,7 @@ export default function OwnerDashboard() {
             <h3 className="font-bold text-center">⚙️ Har order par commission (₹)</h3>
             <input type="number" value={newComm} onChange={(e) => setNewComm(e.target.value)}
               placeholder="e.g. 20" className="w-full border rounded-xl p-2.5 text-center text-lg font-bold" />
-            <p className="text-[11px] text-gray-500 text-center">Deal fix hone ke baad yahan value daal do — uske baad har order par auto-record hoga.</p>
+            <p className="text- text-gray-500 text-center">Deal fix hone ke baad yahan value daal do — uske baad har order par auto-record hoga.</p>
             <div className="flex gap-2">
               <button onClick={() => setShowModal(false)}
                 className="flex-1 bg-gray-100 rounded-xl py-2.5 font-bold text-sm">Cancel</button>
