@@ -90,14 +90,12 @@ export default function OwnerDashboard() {
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
 
-  // Tab ke hisaab se rows filter
   const tabRows = rows.filter((r) => {
     const d = r.created_at.slice(0, 10);
     if (tab === "month" && d.slice(0, 7)!== month) return false;
     if (tab === "today" && d!== today) return false;
     return true;
   });
-  // Uske upar date filter
   const f = tabRows.filter((r) => {
     const d = r.created_at.slice(0, 10);
     return (!from || d >= from) && (!to || d <= to);
@@ -121,16 +119,15 @@ export default function OwnerDashboard() {
   return (
     <div className="owner-page flex flex-col overflow-hidden bg-[#f4f4fa]">
       <style>{`
-       .owner-page { height: 100vh; height: 100dvh; }
+      .owner-page { height: 100vh; height: 100dvh; }
         @media print {
-         .no-print { display: none!important; }
-         .owner-page { height: auto!important; overflow: visible!important; }
+        .no-print { display: none!important; }
+        .owner-page { height: auto!important; overflow: visible!important; }
           body { background: #fff; }
         }
       `}</style>
 
       <div className="max-w-md mx-auto w-full px-4 pt-4 pb-20 flex-1 min-h-0 flex flex-col">
-        {/* Title row — fixed */}
         <div className="no-print flex justify-between items-center shrink-0">
           <div>
             <h2 className="text-lg font-bold text-indigo-900">💰 Commission Dashboard</h2>
@@ -150,14 +147,13 @@ export default function OwnerDashboard() {
           <p className="text-xs text-gray-500">Aashirwad Kachchi Ghani • Platform Owner</p>
         </div>
 
-        {/* Card — flex column, table bachi hui jagah lega */}
         <div className="bg-white rounded-2xl p-4 shadow border border-indigo-100 mt-4 flex-1 min-h-0 flex flex-col">
           <p className="text-sm font-bold text-center text-indigo-900 shrink-0">{tabTitle}</p>
           <p className="text-3xl font-bold text-center text-green-700 my-1 shrink-0">{tabAmount}</p>
 
-          {/* Date filter — From | To | Clear ek line me, barabar size */}
+          {/* Date filter — From/To upar ek line me, Clear neeche */}
           <div className="no-print mt-2 shrink-0">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div className="min-w-0">
                 <p className="text-xs mb-0.5">From</p>
                 <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
@@ -168,21 +164,16 @@ export default function OwnerDashboard() {
                 <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
                   className="w-full min-w-0 block border rounded-lg p-1.5 text-xs" />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs mb-0.5">&nbsp;</p>
-                <button onClick={() => { setFrom(""); setTo(""); }}
-                  className="w-full text-xs bg-gray-100 rounded-lg p-1.5 font-bold">Clear</button>
-              </div>
             </div>
+            <button onClick={() => { setFrom(""); setTo(""); }}
+              className="w-full mt-2 text-xs bg-gray-100 rounded-lg p-2 font-bold">Clear</button>
           </div>
 
-          {/* Excel / PDF — fixed */}
           <div className="no-print flex gap-2 mt-2 shrink-0">
             <button onClick={downloadCSV} className="flex-1 text-sm bg-green-100 text-green-700 rounded-xl px-3 py-2 font-bold">⬇️ Excel (CSV)</button>
             <button onClick={() => window.print()} className="flex-1 text-sm bg-indigo-100 text-indigo-700 rounded-xl px-3 py-2 font-bold">🖨️ PDF / Print</button>
           </div>
 
-          {/* Table — header fixed (har th par sticky), sirf body scroll */}
           <div className="mt-2 border rounded-xl flex-1 min-h-0 overflow-y-auto">
             <table className="w-full text-xs">
               <thead><tr className="text-indigo-900">
@@ -207,7 +198,6 @@ export default function OwnerDashboard() {
         </div>
       </div>
 
-      {/* Neeche 4 tabs — fixed */}
       <div className="no-print fixed bottom-0 left-0 right-0 bg-white border-t flex shadow-lg z-40" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -218,7 +208,6 @@ export default function OwnerDashboard() {
         ))}
       </div>
 
-      {/* Commission dialogue box */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-xs space-y-3">
