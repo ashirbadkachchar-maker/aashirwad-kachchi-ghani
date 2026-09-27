@@ -1,11 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const OWNER_ID = "owner";
+const OWNER_PIN = "Abc@12345";
 
 type TabKey = "orders" | "total" | "month" | "today";
 
@@ -16,228 +14,209 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "today", label: "Aaj", icon: "☀️" },
 ];
 
-export default function OwnerPage() {
+export default function OwnerDashboard() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [lid, setLid] = useState("");
-  const [lpw, setLpw] = useState("");
-  const [tab, setTab] = useState<TabKey>("total");
-  const [records, setRecords] = useState<any[]>([]);
-  const [comm, setComm] = useState("20");
-  const [modal, setModal] = useState(false);
-  const [newVal, setNewVal] = useState("");
+  const [oid, setOid] = useState("");
+  const [opin, setOpin] = useState("");
+  const [err, setErr] = useState("");
+  const [rows, setRows] = useState<any[]>([]);
+  const [newComm, setNewComm] = useState("");
+  const [commValue, setCommValue] = useState("20");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [msg, setMsg] = useState("");
+  const [tab, setTab] = useState<TabKey>("total");
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem("owner_pin") === "Abc@12345") setLoggedIn(true);
+    if (sessionStorage.getItem("owner_ok") === "1") { setLoggedIn(true); load(); }
   }, []);
 
-  useEffect(() => {
-    if (!loggedIn) return;
-    const load = async () => {
-      const { data: s } = await supabase.from("platform_settings")
-       .select("value").eq("key", "commission_per_order").single();
-      if (s?.value) setComm(String(s.value));
-      const { data: r } = await supabase.from("commissions")
-       .select("*").order("created_at", { ascending: false });
-      setRecords(r || []);
-    };
-    load();
-  }, [loggedIn]);
-
-  const doLogin = () => {
-    if (lid === "owner" && lpw === "Abc@12345") {
-      sessionStorage.setItem("owner_pin", "Abc@12345");
-      setLoggedIn(true);
-    } else alert("Galat ID ya password");
+  const login = () => {
+    if (oid.trim() === OWNER_ID && opin === OWNER_PIN) {
+      sessionStorage.setItem("owner_ok", "1");
+      sessionStorage.setItem("owner_pin", opin);
+      setLoggedIn(true); setErr(""); load();
+    } else setErr("❌ Galat ID ya PIN");
   };
 
-  const logout = () => {
-    sessionStorage.removeItem("owner_pin");
-    setLoggedIn(false);
+  const load = async () => {
+    const { data: s } = await supabase.from("platform_settings")
+   .select("value").eq("key", "commission_per_order").single();
+    if (s) { setNewComm(s.value); setCommValue(String(s.value)); }
+    const { data: c } = await supabase.from("commissions")
+   .select("*").order("created_at", { ascending: false }).limit(1000);
+    setRows(c || []);
   };
-
-  const now = new Date();
-  const isThisMonth = (d: string) => {
-    const x = new Date(d);
-    return x.getMonth() === now.getMonth() && x.getFullYear() === now.getFullYear();
-  };
-  const isToday = (d: string) => new Date(d).toDateString() === now.toDateString();
-
-  const totalOrders = records.length;
-  const totalComm = records.reduce((a, r) => a + Number(r.commission_amount || 0), 0);
-  const monthComm = records.filter(r => isThisMonth(r.created_at))
-   .reduce((a, r) => a + Number(r.commission_amount || 0), 0);
-  const todayComm = records.filter(r => isToday(r.created_at))
-   .reduce((a, r) => a + Number(r.commission_amount || 0), 0);
-
-  let list = [...records];
-  let tabTitle = "", tabAmount = "";
-  if (tab === "orders") { tabTitle = "Total Orders"; tabAmount = String(totalOrders); }
-  else if (tab === "total") { tabTitle = "Total Commission"; tabAmount = "₹" + totalComm; }
-  else if (tab === "month") {
-    tabTitle = "Is Mahine"; tabAmount = "₹" + monthComm;
-    list = list.filter(r => isThisMonth(r.created_at));
-  } else {
-    tabTitle = "Aaj"; tabAmount = "₹" + todayComm;
-    list = list.filter(r => isToday(r.created_at));
-  }
-
-  if (from) list = list.filter(r => new Date(r.created_at) >= new Date(from));
-  if (to) list = list.filter(r => new Date(r.created_at) <= new Date(to + "T23:59:59"));
 
   const saveComm = async () => {
-    const v = Number(newVal);
-    if (isNaN(v) || v < 0) { setMsg("Sahi value daalo"); return; }
+    const v = Number(newComm);
+    if (isNaN(v) || v < 0) { alert("Sahi value dalo"); return; }
+    if (!confirm(`Har order par commission ₹${v} set karein?`)) return;
     const res = await fetch("/api/owner/set-commission", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ value: v, pin: sessionStorage.getItem("owner_pin") || "" }),
     });
     const j = await res.json();
-    if (j.ok) {
-      setComm(String(v));
-      setModal(false);
-      setMsg("Commission save ho gaya — ab se har order par ₹" + v);
-      setTimeout(() => setMsg(""), 3000);
-    } else setMsg(j.error || "Save nahi hua");
+    if (!res.ok) alert("Error: " + (j.error || "failed"));
+    else {
+      setCommValue(String(v));
+      setShowModal(false);
+      alert("✅ Commission save ho gaya — ab se har order par ₹" + v);
+    }
   };
+
+  const logout = () => {
+    sessionStorage.removeItem("owner_ok");
+    sessionStorage.removeItem("owner_pin");
+    setLoggedIn(false);
+  };
+
+  if (!loggedIn) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#1a1a2e] px-4">
+      <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl">
+        <h2 className="text-lg font-bold text-center">🔐 Owner Login</h2>
+        <p className="text-xs text-gray-500 text-center mb-4">Platform Commission Dashboard</p>
+        <input value={oid} onChange={(e) => setOid(e.target.value)} placeholder="Owner ID"
+          className="w-full border rounded-xl p-2.5 mb-2 text-sm" />
+        <input type="password" value={opin} onChange={(e) => setOpin(e.target.value)} placeholder="PIN / Password"
+          className="w-full border rounded-xl p-2.5 mb-3 text-sm" onKeyDown={(e) => e.key === "Enter" && login()} />
+        {err && <p className="text-xs text-red-600 mb-2 text-center">{err}</p>}
+        <button onClick={login} className="w-full bg-indigo-600 text-white rounded-xl py-2.5 font-bold text-sm">Login</button>
+      </div>
+    </div>
+  );
+
+  const today = new Date().toISOString().slice(0, 10);
+  const month = today.slice(0, 7);
+
+  // Tab ke hisaab se rows filter
+  const tabRows = rows.filter((r) => {
+    const d = r.created_at.slice(0, 10);
+    if (tab === "month" && d.slice(0, 7)!== month) return false;
+    if (tab === "today" && d!== today) return false;
+    return true;
+  });
+  // Uske upar date filter
+  const f = tabRows.filter((r) => {
+    const d = r.created_at.slice(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+
+  const tabSum = f.reduce((s, r) => s + Number(r.commission_amount), 0);
+  const tabTitle = tab === "orders"? "Total Orders" : tab === "total"? "Total Commission" : tab === "month"? "Is Mahine" : "Aaj";
+  const tabAmount = tab === "orders"? String(f.length) : "₹" + tabSum;
 
   const downloadCSV = () => {
-    const rows: string[][] = [["Order No", "Date", "Order Amount", "Commission"]];
-    list.forEach(r => rows.push([
-      String(r.order_no || ""),
-      new Date(r.created_at).toLocaleString("en-IN"),
-      String(r.order_amount || 0),
-      String(r.commission_amount || 0)
-    ]));
-    const csv = rows.map(r => r.join(",")).join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv" });
+    const head = ["Date", "Order No", "Order Amount", "Commission"];
+    const lines = f.map((r) => [
+      new Date(r.created_at).toLocaleString("hi-IN"), r.order_no, r.order_amount, r.commission_amount,
+    ]);
+    const csv = [head,...lines].map((r) => r.map((v) => `"${String(v?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "commission-" + tab + ".csv";
-    a.click();
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "commission-report.csv"; a.click();
   };
 
-  if (!loggedIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-orange-50 p-4">
-        <div className="bg-white rounded-3xl shadow p-6 w-full max-w-sm space-y-4">
-          <h1 className="text-xl font-bold text-center">🔒 Owner Login</h1>
-          <input className="w-full border rounded-2xl p-3" placeholder="ID"
-            value={lid} onChange={e => setLid(e.target.value)} />
-          <input className="w-full border rounded-2xl p-3" placeholder="Password" type="password"
-            value={lpw} onChange={e => setLpw(e.target.value)} />
-          <button onClick={doLogin}
-            className="w-full bg-orange-500 text-white rounded-2xl p-3 font-bold">Login</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-100 pb-24">
-      {/* Header — login/lang toggle hataya, commission button lagaya */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 flex items-center justify-between text-white sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="logo" className="w-12 h-12 rounded-full bg-white/20 object-cover" />
-          <div>
-            <h1 className="text-xl font-bold">आशीर्वाद कच्चर</h1>
-            <p className="text-xs opacity-90">शुद्ध तेल, हर घर</p>
-          </div>
-        </div>
-        <button onClick={() => { setNewVal(comm); setModal(true); }}
-          className="bg-white/20 rounded-full px-4 py-2 text-sm font-bold">
-          ⚙️ ₹{comm}
+    <div className="min-h-screen bg-[#f4f4fa] pb-24">
+      <style>{`@media print {.no-print { display: none!important; } body { background: #fff; } }`}</style>
+
+      {/* Upar chhota header — sirf commission button */}
+      <div className="no-print bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 flex justify-end sticky top-0 z-10">
+        <button onClick={() => { setNewComm(commValue); setShowModal(true); }}
+          className="bg-white/20 text-white rounded-full px-4 py-1.5 text-sm font-bold">
+          ⚙️ ₹{commValue}
         </button>
       </div>
 
-      {/* Title */}
-      <div className="p-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-indigo-900">💰 Commission Dashboard</h2>
-          <p className="text-sm text-gray-500">Platform Owner • Sirf tumhare liye</p>
-        </div>
-        <button onClick={logout}
-          className="bg-red-100 text-red-600 rounded-2xl px-4 py-2 font-bold text-sm">Logout</button>
-      </div>
-
-      {msg && <div className="mx-4 mb-2 bg-green-100 text-green-700 rounded-2xl p-3 text-sm font-bold">{msg}</div>}
-
-      {/* Beech ka dynamic card — tab ka naam + amount + poori list */}
-      <div className="mx-4 bg-white rounded-3xl shadow p-5">
-        <h3 className="text-lg font-bold text-center">{tabTitle}</h3>
-        <p className="text-4xl font-bold text-center text-indigo-900 my-2">{tabAmount}</p>
-        <div className="mt-3 max-h-80 overflow-y-auto divide-y">
-          {list.length === 0 && <p className="text-center text-gray-400 text-sm py-4">Koi record nahi</p>}
-          {list.map(r => (
-            <div key={r.id} className="py-2 flex justify-between text-sm">
-              <div>
-                <p className="font-bold">{r.order_no}</p>
-                <p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleString("en-IN")}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-gray-600">₹{r.order_amount}</p>
-                <p className="font-bold text-green-700">+₹{r.commission_amount}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Date filter — size fix (50-50, no overlap) */}
-      <div className="mx-4 mt-4 bg-white rounded-3xl shadow p-4">
-        <div className="flex gap-2">
-          <div className="flex-1 min-w-0">
-            <label className="text-sm font-bold">From</label>
-            <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-              className="w-full bg-gray-100 rounded-2xl p-3 mt-1" />
+      <div className="max-w-md mx-auto px-4 py-4 space-y-4">
+        <div className="no-print flex justify-between items-center">
+          <div>
+            <h2 className="text-lg font-bold text-indigo-900">💰 Commission Dashboard</h2>
+            <p className="text-xs text-gray-500">Platform Owner • Sirf tumhare liye</p>
           </div>
-          <div className="flex-1 min-w-0">
-            <label className="text-sm font-bold">To</label>
-            <input type="date" value={to} onChange={e => setTo(e.target.value)}
-              className="w-full bg-gray-100 rounded-2xl p-3 mt-1" />
+          <button onClick={logout} className="text-xs bg-red-100 text-red-600 rounded-xl px-3 py-2 font-bold">Logout</button>
+        </div>
+
+        <div className="hidden print:block text-center mb-2">
+          <h2 className="text-xl font-bold">Commission Report</h2>
+          <p className="text-xs text-gray-500">Aashirwad Kachchi Ghani • Platform Owner</p>
+        </div>
+
+        {/* Beech ka dynamic card — tab ka naam + amount + poori list */}
+        <div className="bg-white rounded-2xl p-4 shadow border border-indigo-100">
+          <p className="text-sm font-bold text-center text-indigo-900">{tabTitle}</p>
+          <p className="text-3xl font-bold text-center text-green-700 my-1">{tabAmount}</p>
+          <div className="mt-2 border rounded-xl overflow-hidden">
+            <table className="w-full text-xs">
+              <thead><tr className="bg-indigo-50 text-indigo-900">
+                <th className="p-2 text-left">Date</th><th className="p-2 text-left">Order No</th>
+                <th className="p-2 text-right">Order ₹</th><th className="p-2 text-right">Comm. ₹</th>
+              </tr></thead>
+              <tbody>
+                {f.map((r) => (
+                  <tr key={r.id} className="border-t">
+                    <td className="p-2">{new Date(r.created_at).toLocaleDateString("hi-IN")}</td>
+                    <td className="p-2 font-semibold">{r.order_no}</td>
+                    <td className="p-2 text-right">₹{r.order_amount}</td>
+                    <td className="p-2 text-right font-bold text-green-700">₹{r.commission_amount}</td>
+                  </tr>
+                ))}
+                {f.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-gray-500">Koi record nahi.</td></tr>}
+              </tbody>
+            </table>
           </div>
         </div>
-        <button onClick={() => { setFrom(""); setTo(""); }}
-          className="mt-2 w-full bg-gray-100 rounded-2xl p-2 font-bold text-sm">Clear</button>
-      </div>
 
-      {/* Excel / PDF */}
-      <div className="mx-4 mt-4 flex gap-2">
-        <button onClick={downloadCSV}
-          className="flex-1 bg-green-100 text-green-700 rounded-2xl p-3 font-bold">⬇️ Excel (CSV)</button>
-        <button onClick={() => window.print()}
-          className="flex-1 bg-indigo-100 text-indigo-700 rounded-2xl p-3 font-bold">🖨️ PDF / Print</button>
+        {/* Date filter — size fix (50-50, overlap nahi) */}
+        <div className="no-print bg-white rounded-2xl p-3 shadow border">
+          <div className="flex gap-2">
+            <label className="text-xs flex-1 min-w-0">From
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
+            </label>
+            <label className="text-xs flex-1 min-w-0">To
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+                className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
+            </label>
+          </div>
+          <button onClick={() => { setFrom(""); setTo(""); }}
+            className="w-full mt-2 text-xs bg-gray-100 rounded-lg px-3 py-2 font-bold">Clear</button>
+        </div>
+
+        <div className="no-print flex gap-2">
+          <button onClick={downloadCSV} className="flex-1 text-sm bg-green-100 text-green-700 rounded-xl px-3 py-2.5 font-bold">⬇️ Excel (CSV)</button>
+          <button onClick={() => window.print()} className="flex-1 text-sm bg-indigo-100 text-indigo-700 rounded-xl px-3 py-2.5 font-bold">🖨️ PDF / Print</button>
+        </div>
+
+        <p className="no-print text-center text-[11px] text-gray-400 pb-6">🔒 Ye page kahin link nahi hai — sirf tumhe pata hai: <b>/owner</b></p>
       </div>
 
       {/* Neeche 4 tabs — sirf naam, koi number nahi */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex shadow-lg">
-        {TABS.map(t => (
+      <div className="no-print fixed bottom-0 left-0 right-0 bg-white border-t flex shadow-lg z-40">
+        {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex-1 py-3 text-center ${tab === t.key? "text-orange-600 font-bold" : "text-gray-500"}`}>
-            <div className="text-2xl">{t.icon}</div>
-            <div className="text-xs mt-1">{t.label}</div>
+            className={`flex-1 py-2.5 text-center ${tab === t.key? "text-orange-600 font-bold" : "text-gray-500"}`}>
+            <div className="text-xl">{t.icon}</div>
+            <div className="text-[11px] mt-0.5">{t.label}</div>
           </button>
         ))}
       </div>
 
       {/* Commission dialogue box */}
-      {modal && (
+      {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm space-y-4">
-            <h3 className="text-lg font-bold text-center">⚙️ Har order par commission (₹)</h3>
-            <input type="number" value={newVal} onChange={e => setNewVal(e.target.value)}
-              className="w-full border rounded-2xl p-3 text-xl font-bold text-center" placeholder="20" />
-            <p className="text-xs text-gray-500 text-center">
-              Deal fix hone ke baad yahan value daal do — uske baad har order par auto-record hoga.
-            </p>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs space-y-3">
+            <h3 className="font-bold text-center">⚙️ Har order par commission (₹)</h3>
+            <input type="number" value={newComm} onChange={(e) => setNewComm(e.target.value)}
+              placeholder="e.g. 20" className="w-full border rounded-xl p-2.5 text-center text-lg font-bold" />
+            <p className="text-[11px] text-gray-500 text-center">Deal fix hone ke baad yahan value daal do — uske baad har order par auto-record hoga.</p>
             <div className="flex gap-2">
-              <button onClick={() => setModal(false)}
-                className="flex-1 bg-gray-100 rounded-2xl p-3 font-bold">Cancel</button>
+              <button onClick={() => setShowModal(false)}
+                className="flex-1 bg-gray-100 rounded-xl py-2.5 font-bold text-sm">Cancel</button>
               <button onClick={saveComm}
-                className="flex-1 bg-indigo-600 text-white rounded-2xl p-3 font-bold">Save</button>
+                className="flex-1 bg-indigo-600 text-white rounded-xl py-2.5 font-bold text-sm">Save</button>
             </div>
           </div>
         </div>
