@@ -41,10 +41,10 @@ export default function OwnerDashboard() {
 
   const load = async () => {
     const { data: s } = await supabase.from("platform_settings")
- .select("value").eq("key", "commission_per_order").single();
+.select("value").eq("key", "commission_per_order").single();
     if (s) { setNewComm(s.value); setCommValue(String(s.value)); }
     const { data: c } = await supabase.from("commissions")
- .select("*").order("created_at", { ascending: false }).limit(1000);
+.select("*").order("created_at", { ascending: false }).limit(1000);
     setRows(c || []);
   };
 
@@ -147,9 +147,9 @@ export default function OwnerDashboard() {
           <p className="text-sm font-bold text-center text-indigo-900">{tabTitle}</p>
           <p className="text-3xl font-bold text-center text-green-700 my-1">{tabAmount}</p>
 
-          {/* Date filter — amount ke neeche, card ke andar */}
+          {/* Date filter — amount ke neeche, card ke andar (overlap fix) */}
           <div className="no-print mt-2">
-            <div className="flex gap-2 items-end">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-end">
               <label className="text-xs flex-1 min-w-0">From
                 <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
                   className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
@@ -169,10 +169,10 @@ export default function OwnerDashboard() {
             <button onClick={() => window.print()} className="flex-1 text-sm bg-indigo-100 text-indigo-700 rounded-xl px-3 py-2 font-bold">🖨️ PDF / Print</button>
           </div>
 
-          {/* Table — sahi size me */}
-          <div className="mt-2 border rounded-xl overflow-hidden">
+          {/* Table — header fixed, body scroll */}
+          <div className="mt-2 border rounded-xl max-h-[420px] overflow-y-auto">
             <table className="w-full text-xs">
-              <thead><tr className="bg-indigo-50 text-indigo-900">
+              <thead className="sticky top-0"><tr className="bg-indigo-50 text-indigo-900">
                 <th className="p-2 text-left">Date</th><th className="p-2 text-left">Order No</th>
                 <th className="p-2 text-right">Order ₹</th><th className="p-2 text-right">Comm. ₹</th>
               </tr></thead>
