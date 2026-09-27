@@ -1,9 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-
-const OWNER_ID = "owner";
-const OWNER_PIN = "Abc@12345";
 
 type TabKey = "orders" | "total" | "month" | "today";
 
@@ -16,6 +12,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
 
 export default function OwnerDashboard() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [oid, setOid] = useState("");
   const [opin, setOpin] = useState("");
   const [err, setErr] = useState("");
@@ -28,34 +25,45 @@ export default function OwnerDashboard() {
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem("owner_ok") === "1") { setLoggedIn(true); load(); }
+    (async () => {
+      try {
+        const r = await fetch("/api/owner/verify");
+        if (r.ok) { setLoggedIn(true); load(); }
+      } catch {}
+      setChecking(false);
+    })();
   }, []);
 
-  const login = () => {
-    if (oid.trim() === OWNER_ID && opin === OWNER_PIN) {
-      sessionStorage.setItem("owner_ok", "1");
-      sessionStorage.setItem("owner_pin", opin);
-      setLoggedIn(true); setErr(""); load();
-    } else setErr("❌ Galat ID ya PIN");
+  const login = async () => {
+    setErr("");
+    try {
+      const res = await fetch("/api/owner/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oid, opin }),
+      });
+      const j = await res.json();
+      if (!res.ok) { setErr("❌ " + (j.error || "Galat ID ya PIN")); return; }
+      setLoggedIn(true); setErr(""); setOpin(""); load();
+    } catch { setErr("❌ Network error"); }
   };
 
   const load = async () => {
-    const { data: s } = await supabase.from("platform_settings")
-.select("value").eq("key", "commission_per_order").single();
-    if (s) { setNewComm(s.value); setCommValue(String(s.value)); }
-    const { data: c } = await supabase.from("commissions")
-.select("*").order("created_at", { ascending: false }).limit(1000);
-    setRows(c || []);
+    const r = await fetch("/api/owner/data");
+    if (!r.ok) { setLoggedIn(false); return; }
+    const j = await r.json();
+    setNewComm(String(j.commission)); setCommValue(String(j.commission));
+    setRows(j.commissions || []);
   };
 
   const saveComm = async () => {
     const v = Number(newComm);
-    if (isNaN(v) || v < 0) { alert("Sahi value dalo"); return; }
+    if (isNaN(v) || v < 0 || v > 500) { alert("Sahi value dalo (0-500)"); return; }
     if (!confirm(`Har order par commission ₹${v} set karein?`)) return;
     const res = await fetch("/api/owner/set-commission", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value: v, pin: sessionStorage.getItem("owner_pin") || "" }),
+      body: JSON.stringify({ value: v }),
     });
     const j = await res.json();
     if (!res.ok) alert("Error: " + (j.error || "failed"));
@@ -66,17 +74,22 @@ export default function OwnerDashboard() {
     }
   };
 
-  const logout = () => {
-    sessionStorage.removeItem("owner_ok");
-    sessionStorage.removeItem("owner_pin");
-    setLoggedIn(false);
+  const logout = async () => {
+    await fetch("/api/owner/logout", { method: "POST" });
+    setLoggedIn(false); setRows([]);
   };
+
+  if (checking) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#1a1a2e]">
+      <p className="text-white text-sm">Checking session...</p>
+    </div>
+  );
 
   if (!loggedIn) return (
     <div className="min-h-screen flex items-center justify-center bg-[#1a1a2e] px-4">
       <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl">
         <h2 className="text-lg font-bold text-center">🔐 Owner Login</h2>
-        <p className="text-xs text-gray-500 text-center mb-4">Platform Commission Dashboard</p>
+        <p className="text-xs text-gray-500 text-center mb-4">Platform Commission Dashboard • Secure</p>
         <input value={oid} onChange={(e) => setOid(e.target.value)} placeholder="Owner ID"
           className="w-full border rounded-xl p-2.5 mb-2 text-sm" />
         <input type="password" value={opin} onChange={(e) => setOpin(e.target.value)} placeholder="PIN / Password"
@@ -119,10 +132,10 @@ export default function OwnerDashboard() {
   return (
     <div className="owner-page flex flex-col overflow-hidden bg-[#f4f4fa]">
       <style>{`
-      .owner-page { height: 100vh; height: 100dvh; }
+     .owner-page { height: 100vh; height: 100dvh; }
         @media print {
-        .no-print { display: none!important; }
-        .owner-page { height: auto!important; overflow: visible!important; }
+       .no-print { display: none!important; }
+       .owner-page { height: auto!important; overflow: visible!important; }
           body { background: #fff; }
         }
       `}</style>
@@ -131,7 +144,7 @@ export default function OwnerDashboard() {
         <div className="no-print flex justify-between items-center shrink-0">
           <div>
             <h2 className="text-lg font-bold text-indigo-900">💰 Commission Dashboard</h2>
-            <p className="text-xs text-gray-500">Platform Owner • Sirf tumhare liye</p>
+            <p className="text-xs text-gray-500">Platform Owner • Secure Login</p>
           </div>
           <div className="flex gap-2 items-center">
             <button onClick={() => { setNewComm(commValue); setShowModal(true); }}
@@ -151,7 +164,6 @@ export default function OwnerDashboard() {
           <p className="text-sm font-bold text-center text-indigo-900 shrink-0">{tabTitle}</p>
           <p className="text-3xl font-bold text-center text-green-700 my-1 shrink-0">{tabAmount}</p>
 
-          {/* Date filter — From/To upar ek line me, Clear neeche */}
           <div className="no-print mt-2 shrink-0">
             <div className="grid grid-cols-2 gap-2">
               <div className="min-w-0">
