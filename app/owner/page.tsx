@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 const OWNER_ID = "owner";
@@ -26,9 +26,25 @@ export default function OwnerDashboard() {
   const [to, setTo] = useState("");
   const [tab, setTab] = useState<TabKey>("total");
   const [showModal, setShowModal] = useState(false);
+  const loggedInRef = useRef(false);
+
+  useEffect(() => { loggedInRef.current = loggedIn; }, [loggedIn]);
+
+  // Commission value header ke liye localStorage me sync
+  useEffect(() => {
+    localStorage.setItem("akg_commission", commValue);
+  }, [commValue]);
 
   useEffect(() => {
     if (sessionStorage.getItem("owner_ok") === "1") { setLoggedIn(true); load(); }
+    // Header wale ⚙️ button se dialogue box kholo
+    const openModal = () => {
+      if (!loggedInRef.current) return;
+      setNewComm(localStorage.getItem("akg_commission") || "20");
+      setShowModal(true);
+    };
+    window.addEventListener("owner-open-commission-modal", openModal);
+    return () => window.removeEventListener("owner-open-commission-modal", openModal);
   }, []);
 
   const login = () => {
@@ -41,10 +57,10 @@ export default function OwnerDashboard() {
 
   const load = async () => {
     const { data: s } = await supabase.from("platform_settings")
-   .select("value").eq("key", "commission_per_order").single();
+  .select("value").eq("key", "commission_per_order").single();
     if (s) { setNewComm(s.value); setCommValue(String(s.value)); }
     const { data: c } = await supabase.from("commissions")
-   .select("*").order("created_at", { ascending: false }).limit(1000);
+  .select("*").order("created_at", { ascending: false }).limit(1000);
     setRows(c || []);
   };
 
@@ -62,6 +78,7 @@ export default function OwnerDashboard() {
     else {
       setCommValue(String(v));
       setShowModal(false);
+      window.dispatchEvent(new Event("owner-commission-updated"));
       alert("✅ Commission save ho gaya — ab se har order par ₹" + v);
     }
   };
@@ -122,14 +139,6 @@ export default function OwnerDashboard() {
     <div className="min-h-screen bg-[#f4f4fa] pb-24">
       <style>{`@media print {.no-print { display: none!important; } body { background: #fff; } }`}</style>
 
-      {/* Upar chhota header — sirf commission button */}
-      <div className="no-print bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 flex justify-end sticky top-0 z-10">
-        <button onClick={() => { setNewComm(commValue); setShowModal(true); }}
-          className="bg-white/20 text-white rounded-full px-4 py-1.5 text-sm font-bold">
-          ⚙️ ₹{commValue}
-        </button>
-      </div>
-
       <div className="max-w-md mx-auto px-4 py-4 space-y-4">
         <div className="no-print flex justify-between items-center">
           <div>
@@ -144,10 +153,34 @@ export default function OwnerDashboard() {
           <p className="text-xs text-gray-500">Aashirwad Kachchi Ghani • Platform Owner</p>
         </div>
 
-        {/* Beech ka dynamic card — tab ka naam + amount + poori list */}
+        {/* Beech ka dynamic card — title + amount + filter + buttons + table */}
         <div className="bg-white rounded-2xl p-4 shadow border border-indigo-100">
           <p className="text-sm font-bold text-center text-indigo-900">{tabTitle}</p>
           <p className="text-3xl font-bold text-center text-green-700 my-1">{tabAmount}</p>
+
+          {/* Date filter — amount ke neeche, card ke andar */}
+          <div className="no-print mt-2">
+            <div className="flex gap-2 items-end">
+              <label className="text-xs flex-1 min-w-0">From
+                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                  className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
+              </label>
+              <label className="text-xs flex-1 min-w-0">To
+                <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+                  className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
+              </label>
+              <button onClick={() => { setFrom(""); setTo(""); }}
+                className="text-xs bg-gray-100 rounded-lg px-3 py-2 font-bold">Clear</button>
+            </div>
+          </div>
+
+          {/* Excel / PDF — card ke andar */}
+          <div className="no-print flex gap-2 mt-2">
+            <button onClick={downloadCSV} className="flex-1 text-sm bg-green-100 text-green-700 rounded-xl px-3 py-2 font-bold">⬇️ Excel (CSV)</button>
+            <button onClick={() => window.print()} className="flex-1 text-sm bg-indigo-100 text-indigo-700 rounded-xl px-3 py-2 font-bold">🖨️ PDF / Print</button>
+          </div>
+
+          {/* Table — sahi size me */}
           <div className="mt-2 border rounded-xl overflow-hidden">
             <table className="w-full text-xs">
               <thead><tr className="bg-indigo-50 text-indigo-900">
@@ -167,27 +200,6 @@ export default function OwnerDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* Date filter — size fix (50-50, overlap nahi) */}
-        <div className="no-print bg-white rounded-2xl p-3 shadow border">
-          <div className="flex gap-2">
-            <label className="text-xs flex-1 min-w-0">From
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
-            </label>
-            <label className="text-xs flex-1 min-w-0">To
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                className="w-full block min-w-0 border rounded-lg p-1.5 mt-0.5" />
-            </label>
-          </div>
-          <button onClick={() => { setFrom(""); setTo(""); }}
-            className="w-full mt-2 text-xs bg-gray-100 rounded-lg px-3 py-2 font-bold">Clear</button>
-        </div>
-
-        <div className="no-print flex gap-2">
-          <button onClick={downloadCSV} className="flex-1 text-sm bg-green-100 text-green-700 rounded-xl px-3 py-2.5 font-bold">⬇️ Excel (CSV)</button>
-          <button onClick={() => window.print()} className="flex-1 text-sm bg-indigo-100 text-indigo-700 rounded-xl px-3 py-2.5 font-bold">🖨️ PDF / Print</button>
         </div>
 
         <p className="no-print text-center text-[11px] text-gray-400 pb-6">🔒 Ye page kahin link nahi hai — sirf tumhe pata hai: <b>/owner</b></p>
