@@ -19,6 +19,22 @@ const NORM = (t: string) => {
   if (s.includes("sesame") || s.includes("til")) return "sesame";
   return s.trim();
 };
+// --- Phase 2: smart cross-sell ---
+const CROSS_SELL: Record<string, string[]> = {
+  mustard: ["sesame", "gud"],
+  sesame: ["mustard", "cheeni"],
+  gud: ["sesame", "mustard"],
+  cheeni: ["mustard", "sesame"],
+  peanut: ["sesame", "gud"],
+};
+const BESTSELLERS = ["mustard", "sesame"];
+function getBaseId(product_id: string): string {
+  const id = String(product_id || "").toLowerCase();
+  for (const base of ["mustard", "sesame", "gud", "cheeni", "peanut"]) {
+    if (id === base || id.startsWith(base + "-")) return base;
+  }
+  return "";
+}
 function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: number } }) {
   const { lang } = useLang();
   const [sel, setSel] = useState(0);
@@ -30,6 +46,7 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
     if (found) found.qty += 1;
     else cart.push({ product_id: pid, name: lang === "hi"? p.nameHi : p.nameEn, pack_size_kg: size.kg, price: size.price, qty: 1 });
     localStorage.setItem("akg_cart", JSON.stringify(cart));
+    window.dispatchEvent(new Event("akg-cart-updated"));
     alert(lang === "hi"? "कार्ट में जुड़ गया!" : "Added to cart!");
   };
   const stars = rating && rating.count > 0? Math.round(rating.avg) : 0;
@@ -52,18 +69,46 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
     </div>
   );
 }
+function RecommendedForYou({ products, ratings }: { products: Prod[]; ratings: Record<string, { avg: number; count: number }> }) {
+  const { lang } = useLang();
+  const [cartIds, setCartIds] = useState<string[]>([]);
+  useEffect(() => {
+    const read = () => {
+      try {
+        const cart = JSON.parse(localStorage.getItem("akg_cart") || "[]");
+        setCartIds((cart as any[]).map((c: any) => getBaseId(c.product_id)).filter(Boolean));
+      } catch { setCartIds([]); }
+    };
+    read();
+    window.addEventListener("akg-cart-updated", read);
+    window.addEventListener("storage", read);
+    return () => { window.removeEventListener("akg-cart-updated", read); window.removeEventListener("storage", read); };
+  }, []);
+  const picked: string[] = [];
+  if (cartIds.length === 0) {
+    picked.push(...BESTSELLERS);
+  } else {
+    const seen = new Set(cartIds);
+    for (const id of cartIds) {
+      for (const s of CROSS_SELL[id] || []) {
+        if (!seen.has(s) &&!picked.includes(s)) picked.push(s);
+      }
+    }
+  }
+  const suggested = picked.map((id) => products.find((p) => p.id === id)).filter(Boolean).slice(0, 4) as Prod[];
+  if (suggested.length === 0) return null;
+  return (
+    <div>
+      <h2 className="text-base font-bold mb-1">✨ {lang === "hi"? "आपके लिए खास" : "Recommended For You"}</h2>
+      <p className="text-[11px] text-gray-500 mb-2">{lang === "hi"? "इन्हें साथ में खरीदने वालों ने पसंद किया" : "Loved by customers who bought similar items"}</p>
+      <div className="grid grid-cols-2 gap-3">{suggested.map((p) => (<ProductCard key={"rec-" + p.id} p={p} rating={ratings[p.id]} />))}</div>
+    </div>
+  );
+}
 export default function Home() {
   const { lang } = useLang();
   const [products, setProducts] = useState<Prod[]>(PRODUCTS);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
-  const [slide, setSlide] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setSlide((s) => (s + 1) % products.length), 3000);
-    return () => clearInterval(t);
-  }, [products.length]);
-  const goToProduct = (id: string) => {
-    document.getElementById("prod-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
   useEffect(() => {
     const loadPrices = async () => {
       const { data: db } = await supabase.from("products").select("oil_type, pack_size_kg, price").eq("is_active", true);
@@ -90,19 +135,12 @@ export default function Home() {
     : [{ icon: "❤️", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "🌿", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
   return (
     <div className="px-4 py-4 space-y-5">
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white shadow">
-        <button onClick={() => goToProduct(products[slide].id)} className="w-full text-left flex items-center gap-4">
-          <div className="flex-1">
-            <h2 className="text-xl font-bold leading-snug">{lang === "hi"? products[slide].nameHi : products[slide].nameEn}</h2>
-            <p className="text-xs mt-1 opacity-95">{lang === "hi"? "बिना केमिकल, कोल्हू में पिसाई" : "No chemicals, traditionally pressed"}<br />{lang === "hi"? "पता-जोधपुर रोड, भोपालगढ़" : "Address-Jodhpur Road, Bhopalgarh"}</p>
-          </div>
-          <img src={products[slide].img} alt={products[slide].nameHi} className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
-        </button>
-        <div className="flex justify-center gap-1.5 mt-3">
-          {products.map((p, i) => (
-            <button key={p.id} onClick={() => setSlide(i)} aria-label={p.nameHi} className={"h-2 rounded-full " + (i === slide? "w-6 bg-white" : "w-2 bg-white/50")} />
-          ))}
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white flex items-center gap-4 shadow">
+        <div className="flex-1">
+          <h2 className="text-xl font-bold leading-snug">{lang === "hi"? "शुद्ध कच्ची घानी तेल - भाटी प्रोडक्ट्स" : "Pure Kachchi Ghani Oil - Bhati Products"}</h2>
+          <p className="text-xs mt-1 opacity-95">{lang === "hi"? "बिना केमिकल, कोल्हू में पिसाई | जोधपुर रोड, भोपालगढ़" : "No chemicals, traditionally pressed | Jodhpur Road, Bhopalgarh"}</p>
         </div>
+        <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
       </div>
       <div>
         <h2 className="text-base font-bold mb-2">{lang === "hi"? "तेल के फायदे" : "Oil Benefits"}</h2>
@@ -112,12 +150,10 @@ export default function Home() {
       </div>
       <div>
         <h2 className="text-base font-bold mb-2">Shop Products</h2>
-        <div className="grid grid-cols-2 gap-3">{products.map((p) => (<div key={p.id} id={"prod-" + p.id} className="scroll-mt-24"><ProductCard p={p} rating={ratings[p.id]} /></div>))}</div>
+        <div className="grid grid-cols-2 gap-3">{products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}</div>
       </div>
-      <footer className="text-center pb-4">
-        <footer className="text-center text-xs text-gray-400 pb-4"><a href="/admin/login" style={{color:"inherit",textDecoration:"none"}}>  • आशीर्वाद कच्चर • </a></footer>
-        <p className="text-[10px] text-gray-400 mt-0.5">@app developed by -D&D Pvt. Ltd. Jodhpur</p>
-      </footer>
+      <RecommendedForYou products={products} ratings={ratings} />
+      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
     </div>
   );
 }
