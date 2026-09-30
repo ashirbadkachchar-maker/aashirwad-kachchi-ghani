@@ -79,10 +79,27 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
     window.dispatchEvent(new Event("akg-cart-updated"));
     alert(lang === "hi"? "कार्ट में जुड़ गया!" : "Added to cart!");
   };
+  const shareProduct = async () => {
+    const name = lang === "hi"? p.nameHi : p.nameEn;
+    const text = `${name} (${size.kg}kg) - ₹${size.price} | ${lang === "hi"? "आशीर्वाद कच्चर - शुद्ध तेल, हर घर" : "Aashirwad Kachchar - Pure Oil, Every Home"}`;
+    const url = window.location.origin;
+    const nav: any = navigator;
+    if (nav.share) {
+      try { await nav.share({ title: name, text, url }); } catch {}
+    } else {
+      window.open("https://wa.me/?text=" + encodeURIComponent(text + " " + url), "_blank");
+    }
+  };
   const stars = rating && rating.count > 0? Math.round(rating.avg) : 0;
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3 border border-amber-100 flex flex-col">
-      <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl mb-2" />
+      <div className="relative mb-2">
+        <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl" />
+        <button onClick={shareProduct} aria-label="Share product"
+          className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center text-sm active:scale-95 transition">
+          📤
+        </button>
+      </div>
       <h3 className="font-bold text-sm leading-snug">{lang === "hi"? p.nameHi : p.nameEn}</h3>
       {stars > 0? (
         <p className="text-xs mt-0.5"><span className="text-amber-500 font-bold">{"★".repeat(stars)}{"☆".repeat(5 - stars)}</span><span className="text-gray-500"> {rating!.avg.toFixed(1)} ({rating!.count})</span></p>
