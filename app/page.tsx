@@ -19,8 +19,6 @@ const NORM = (t: string) => {
   if (s.includes("sesame") || s.includes("til")) return "sesame";
   return s.trim();
 };
-// Share icon as data-URI image (safe, kabhi corrupt nahi hoga)
-const SHARE_ICON = "data:image/svg+xml,[STRIPPED];
 // --- 4 auto-sliding tabs ---
 const SLIDES = [
   { id: "mustard", img: "/products/mustard.webp", titleHi: "सरसों का तेल", titleEn: "Mustard Oil", subHi: "शुद्ध कच्ची घानी • कोल्हू में पिसाई", subEn: "Pure kachchi ghani • Traditionally pressed" },
@@ -99,7 +97,7 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
         <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl" />
         <button onClick={shareProduct} aria-label="Share product"
           className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-white/95 shadow flex items-center justify-center active:scale-95 transition">
-          <img src={SHARE_ICON} alt="Share" className="w-4 h-4" />
+          <span className="text-[#c2410c] text-lg font-bold leading-none">↗</span>
         </button>
       </div>
       <h3 className="font-bold text-sm leading-snug">{lang === "hi"? p.nameHi : p.nameEn}</h3>
