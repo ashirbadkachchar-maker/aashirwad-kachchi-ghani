@@ -93,13 +93,7 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
   const stars = rating && rating.count > 0? Math.round(rating.avg) : 0;
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3 border border-amber-100 flex flex-col">
-      <div className="relative mb-2">
-        <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl" />
-        <button onClick={shareProduct} aria-label="Share product"
-          className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-white/95 shadow flex items-center justify-center active:scale-95 transition">
-          <span className="text-[#c2410c] text-lg font-bold leading-none">↗</span>
-        </button>
-      </div>
+      <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl mb-2" />
       <h3 className="font-bold text-sm leading-snug">{lang === "hi"? p.nameHi : p.nameEn}</h3>
       {stars > 0? (
         <p className="text-xs mt-0.5"><span className="text-amber-500 font-bold">{"★".repeat(stars)}{"☆".repeat(5 - stars)}</span><span className="text-gray-500"> {rating!.avg.toFixed(1)} ({rating!.count})</span></p>
@@ -115,7 +109,10 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
         <p className="text-xl font-extrabold text-green-700">₹{size.price}</p>
         <span className="text-[10px] font-bold text-orange-600 bg-orange-100 rounded-full px-1.5 py-0.5">{lang === "hi"? "ऑफर" : "Offer"}</span>
       </div>
-      <button onClick={addToCart} className="mt-2 w-full text-sm bg-orange-500 text-white rounded-xl py-2 font-bold active:scale-[0.98] transition">{lang === "hi"? "जोड़ें" : "Add"}</button>
+      <div className="mt-2 flex items-center gap-2">
+        <button onClick={addToCart} className="flex-1 text-sm bg-orange-500 text-white rounded-xl py-2 font-bold active:scale-[0.98] transition">{lang === "hi"? "जोड़ें" : "Add"}</button>
+        <button onClick={shareProduct} className="text-[11px] text-gray-500 font-semibold whitespace-nowrap px-1 active:scale-95 transition">🔗 {lang === "hi"? "शेयर करें" : "Share"}</button>
+      </div>
     </div>
   );
 }
