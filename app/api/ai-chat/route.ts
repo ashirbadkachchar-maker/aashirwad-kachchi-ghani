@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// spam rokne ke liye — 1 IP se 1 min me max 10 sawal
 const hits = new Map<string, { count: number; ts: number }>();
 function rateLimit(ip: string): boolean {
   const now = Date.now();
@@ -22,9 +21,11 @@ export async function POST(req: Request) {
     if (!msg) return NextResponse.json({ error: "Empty message" }, { status: 400 });
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "AI not configured" }, { status: 500 });
+    if (!apiKey) {
+      console.error("AI-CHAT: GEMINI_API_KEY missing in env");
+      return NextResponse.json({ error: "AI not configured", detail: "GEMINI_API_KEY Vercel me add nahi hai ya redeploy nahi hua" }, { status: 500 });
+    }
 
-    // live products ka data AI ko denge taaki sahi price bataye
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const { data: dbProducts } = await supabase.from("products").select("oil_type, pack_size_kg, price").eq("is_active", true);
     const prodLines = (dbProducts || []).map((p: any) => `- ${p.oil_type} ${p.pack_size_kg}kg : ₹${p.price}`).join("\n");
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
 Current products and prices:
 ${prodLines || "- Mustard oil, Sesame oil, Til-gud chikki, Til-cheeni chikki (prices on website)"}
 
-Store info: 100% pure kachchi ghani oil, no chemicals, traditionally pressed (kolhu). Address: Jodhpur Road, Bhopalgarh. Payment via Razorpay (UPI/cards).
+Store info: 100% pure kachchi ghani oil, no chemicals, traditionally pressed (kolhu). Address: Jodhpur Road, Bhopalgarh. Payment via 【entity-Razorpay¦canonical_name=Razorpay】 (UPI/cards).
 
 Rules:
 - Answer only about products, prices, delivery, orders, store.
@@ -49,8 +50,9 @@ Rules:
       { role: "user", parts: [{ text: msg }] }
     ];
 
+    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,11 +63,20 @@ Rules:
         })
       }
     );
-    const data = await res.json();
-    if (!res.ok) return NextResponse.json({ error: "AI error" }, { status: 500 });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const gErr = data?.error?.message || `HTTP ${res.status}`;
+      console.error("AI-CHAT Gemini error:", gErr);
+      return NextResponse.json({ error: "AI error", detail: gErr }, { status: 500 });
+    }
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    return NextResponse.json({ reply: reply.trim() || (lang === "hi"? "Maaf kijiye, samajh nahi aaya. Dobara puchiye." : "Sorry, I did not understand. Please ask again.") });
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    if (!reply.trim()) {
+      console.error("AI-CHAT empty reply");
+      return NextResponse.json({ error: "AI error", detail: "AI se khaali jawab mila" }, { status: 500 });
+    }
+    return NextResponse.json({ reply: reply.trim() });
+  } catch (e: any) {
+    console.error("AI-CHAT crash:", e?.message);
+    return NextResponse.json({ error: "Server error", detail: String(e?.message || e).slice(0, 200) }, { status: 500 });
   }
 }
