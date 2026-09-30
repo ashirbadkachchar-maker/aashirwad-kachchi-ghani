@@ -19,22 +19,6 @@ const NORM = (t: string) => {
   if (s.includes("sesame") || s.includes("til")) return "sesame";
   return s.trim();
 };
-// --- Phase 2: smart cross-sell ---
-const CROSS_SELL: Record<string, string[]> = {
-  mustard: ["sesame", "gud"],
-  sesame: ["mustard", "cheeni"],
-  gud: ["sesame", "mustard"],
-  cheeni: ["mustard", "sesame"],
-  peanut: ["sesame", "gud"],
-};
-const BESTSELLERS = ["mustard", "sesame"];
-function getBaseId(product_id: string): string {
-  const id = String(product_id || "").toLowerCase();
-  for (const base of ["mustard", "sesame", "gud", "cheeni", "peanut"]) {
-    if (id === base || id.startsWith(base + "-")) return base;
-  }
-  return "";
-}
 // --- 4 auto-sliding tabs ---
 const SLIDES = [
   { id: "mustard", img: "/products/mustard.webp", titleHi: "सरसों का तेल", titleEn: "Mustard Oil", subHi: "शुद्ध कच्ची घानी • कोल्हू में पिसाई", subEn: "Pure kachchi ghani • Traditionally pressed" },
@@ -65,6 +49,10 @@ function HeroSlider() {
         <div className="flex-1">
           <h2 className="text-xl font-bold leading-snug">{lang === "hi"? s.titleHi : s.titleEn}</h2>
           <p className="text-xs mt-1 opacity-95">{lang === "hi"? s.subHi : s.subEn}</p>
+          <button onClick={() => document.getElementById("akg-products")?.scrollIntoView({ behavior: "smooth" })}
+            className="mt-2.5 text-xs font-bold bg-white text-orange-600 rounded-full px-4 py-1.5 shadow active:scale-95 transition">
+            🛍️ {lang === "hi"? "खरीदें" : "Shop Now"}
+          </button>
         </div>
         <img key={s.id} src={s.img} alt={s.titleHi} className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
       </div>
@@ -114,42 +102,6 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
     </div>
   );
 }
-function RecommendedForYou({ products, ratings }: { products: Prod[]; ratings: Record<string, { avg: number; count: number }> }) {
-  const { lang } = useLang();
-  const [cartIds, setCartIds] = useState<string[]>([]);
-  useEffect(() => {
-    const read = () => {
-      try {
-        const cart = JSON.parse(localStorage.getItem("akg_cart") || "[]");
-        setCartIds((cart as any[]).map((c: any) => getBaseId(c.product_id)).filter(Boolean));
-      } catch { setCartIds([]); }
-    };
-    read();
-    window.addEventListener("akg-cart-updated", read);
-    window.addEventListener("storage", read);
-    return () => { window.removeEventListener("akg-cart-updated", read); window.removeEventListener("storage", read); };
-  }, []);
-  const picked: string[] = [];
-  if (cartIds.length === 0) {
-    picked.push(...BESTSELLERS);
-  } else {
-    const seen = new Set(cartIds);
-    for (const id of cartIds) {
-      for (const s of CROSS_SELL[id] || []) {
-        if (!seen.has(s) &&!picked.includes(s)) picked.push(s);
-      }
-    }
-  }
-  const suggested = picked.map((id) => products.find((p) => p.id === id)).filter(Boolean).slice(0, 4) as Prod[];
-  if (suggested.length === 0) return null;
-  return (
-    <div>
-      <h2 className="text-base font-bold mb-1">✨ {lang === "hi"? "आपके लिए खास" : "Recommended For You"}</h2>
-      <p className="text-[11px] text-gray-500 mb-2">{lang === "hi"? "इन्हें साथ में खरीदने वालों ने पसंद किया" : "Loved by customers who bought similar items"}</p>
-      <div className="grid grid-cols-2 gap-3">{suggested.map((p) => (<ProductCard key={"rec-" + p.id} p={p} rating={ratings[p.id]} />))}</div>
-    </div>
-  );
-}
 export default function Home() {
   const { lang } = useLang();
   const [products, setProducts] = useState<Prod[]>(PRODUCTS);
@@ -181,8 +133,12 @@ export default function Home() {
   return (
     <div className="px-4 py-4 space-y-5">
       <HeroSlider />
+      <div className="flex items-center justify-center gap-4 bg-white rounded-2xl border border-amber-100 shadow-sm px-3 py-2.5 text-[11px] font-bold text-gray-700">
+        <span>🚚 {lang === "hi"? "मुफ्त डिलीवरी" : "Free Delivery"}</span>
+        <span>💯 {lang === "hi"? "100% शुद्ध" : "100% Pure"}</span>
+        <span>☎️ {lang === "hi"? "सहायता" : "Support"}</span>
+      </div>
       <div>
-        <h2 className="text-base font-bold mb-2">{lang === "hi"? "तेल के फायदे" : "Oil Benefits"}</h2>
         <div className="grid grid-cols-2 gap-2.5">
           {FAYDE.map((b) => (
             <div key={b.title} className="bg-white rounded-2xl p-3 shadow-sm border border-amber-100 flex items-center gap-2.5">
@@ -195,14 +151,13 @@ export default function Home() {
           ))}
         </div>
       </div>
-      <div>
-        <h2 className="text-base font-bold mb-2">🛍️ {lang === "hi"? "हमारे उत्पाद" : "Shop Products"}</h2>
+      <div id="akg-products" className="scroll-mt-20">
         <div className="grid grid-cols-2 gap-3">{products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}</div>
       </div>
-      <RecommendedForYou products={products} ratings={ratings} />
-      <footer className="text-center text-xs text-gray-400 pb-4">
-        <a href="/admin" className="font-bold text-amber-600 text-sm">आशीर्वाद कच्चर</a>
-        <p className="mt-0.5">{lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</p>
+      <footer className="text-center pb-3">
+        <a href="/admin" className="font-bold text-amber-600 text-xs">आशीर्वाद कच्चर</a>
+        <p className="text-[10px] text-gray-400">{lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</p>
+        <p className="text-[10px] text-gray-400 mt-0.5">app developed by @D&D Pvt. Ltd. Jodhpur</p>
       </footer>
     </div>
   );
