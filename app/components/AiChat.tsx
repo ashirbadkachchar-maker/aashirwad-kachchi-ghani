@@ -32,7 +32,13 @@ export default function AiChat() {
         body: JSON.stringify({ message: text, lang, history: newMsgs.slice(-8) })
       });
       const data = await res.json();
-      setMsgs([...newMsgs, { role: "ai", text: data.reply || (lang === "hi"? "Kuch gadbad hui, dobara try karo." : "Something went wrong, try again.") }]);
+      if (!res.ok) {
+        // 🔍 DEBUG: exact error dikhao taaki wajah pata chale
+        const detail = data.detail? ` (${data.detail})` : "";
+        setMsgs([...newMsgs, { role: "ai", text: `⚠️ Error: ${data.error || "failed"}${detail}` }]);
+      } else {
+        setMsgs([...newMsgs, { role: "ai", text: data.reply || (lang === "hi"? "Kuch gadbad hui, dobara try karo." : "Something went wrong, try again.") }]);
+      }
     } catch {
       setMsgs([...newMsgs, { role: "ai", text: lang === "hi"? "Network error, dobara try karo." : "Network error, try again." }]);
     }
