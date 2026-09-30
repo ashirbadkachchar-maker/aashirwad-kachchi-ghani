@@ -25,6 +25,8 @@ export default function OrdersPage() {
   const [err, setErr] = useState("");
   const [stars, setStars] = useState<Record<string, number>>({});
   const [reviewText, setReviewText] = useState<Record<string, string>>({});
+  const [reviewPhoto, setReviewPhoto] = useState<Record<string, File | null>>({});
+  const [photoPreview, setPhotoPreview] = useState<Record<string, string>>({});
   const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
   const [savingReview, setSavingReview] = useState(false);
   const [trackOpen, setTrackOpen] = useState<Record<string, boolean>>({});
@@ -80,7 +82,7 @@ export default function OrdersPage() {
     finally { setChecking(false); }
   };
   const backToMobile = () => { setLoginStep("mobile"); setPassword(""); setErr(""); };
-  const logout = () => { localStorage.removeItem("akg_customer"); setCustomer(null); setOrders([]); setMobile(""); setPassword(""); setLoginStep("mobile"); setOpenId(null); setStars({}); setReviewText({}); setReviewed({}); setTrackOpen({}); setTrackEvents({}); };
+  const logout = () => { localStorage.removeItem("akg_customer"); setCustomer(null); setOrders([]); setMobile(""); setPassword(""); setLoginStep("mobile"); setOpenId(null); setStars({}); setReviewText({}); setReviewPhoto({}); setPhotoPreview({}); setReviewed({}); setTrackOpen({}); setTrackEvents({}); };
   const toggleItems = async (oid: string) => {
     if (openId === oid) { setOpenId(null); return; }
     setOpenId(oid);
@@ -98,6 +100,13 @@ export default function OrdersPage() {
       setTrackEvents((p) => ({...p, [oid]: data || []}));
     }
   };
+  const pickPhoto = (oid: string, f: File | null) => {
+    setReviewPhoto((p) => ({...p, [oid]: f}));
+    setPhotoPreview((p) => {
+      if (p[oid]) { try { URL.revokeObjectURL(p[oid]); } catch {} }
+      return {...p, [oid]: f? URL.createObjectURL(f) : "" };
+    });
+  };
   const submitReview = async (oid: string) => {
     const s = stars[oid] || 0;
     if (!s ||!customer) return;
@@ -107,12 +116,27 @@ export default function OrdersPage() {
       const { data } = await supabase.from("order_items").select("product_id, product_name, pack_size_kg, qty, price").eq("order_id", oid);
       orderItems = data || [];
     }
+    // photo upload (fail ho to bhi review rukega nahi)
+    let photoUrl: string | null = null;
+    const file = reviewPhoto[oid];
+    if (file) {
+      try {
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const path = `${customer.id || customer.mobile || "guest"}/${oid}_${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("review-photos").upload(path, file, { upsert: true });
+        if (!upErr) {
+          const { data } = supabase.storage.from("review-photos").getPublicUrl(path);
+          photoUrl = data.publicUrl;
+        }
+      } catch {}
+    }
     const txt = (reviewText[oid] || "").trim();
     const rows = orderItems.map((it: any) => ({
       customer_name: customer.name,
       rating: s,
       review: txt,
       product_id: it.product_id || null,
+      photo_url: photoUrl,
       is_public: true,
     }));
     const toInsert = rows.length > 0? rows : [{
@@ -120,6 +144,7 @@ export default function OrdersPage() {
       rating: s,
       review: txt,
       product_id: null,
+      photo_url: photoUrl,
       is_public: true,
     }];
     const { error } = await supabase.from("feedback").insert(toInsert);
@@ -127,6 +152,9 @@ export default function OrdersPage() {
     if (!error) {
       localStorage.setItem("akg_reviewed_" + oid, "1");
       setReviewed((p) => ({...p, [oid]: true}));
+      pickPhoto(oid, null);
+      setReviewText((p) => ({...p, [oid]: ""}));
+      setStars((p) => ({...p, [oid]: 0}));
     } else {
       alert("Review save nahi hua, phir try karo");
     }
@@ -205,6 +233,8 @@ export default function OrdersPage() {
                 <div className="pt-2 mt-1 border-t border-amber-100">
                   {reviewed[o.id]? (
                     <p className="text-center text-green-600 font-bold text-sm py-1">🙏 Review ke liye dhanyavaad!</p>
+                  ) : o.order_status!== "delivered"? (
+                    <p className="text-center text-xs text-gray-400 py-1">📦 Product deliver hone ke baad review de sakte ho</p>
                   ) : (
                     <div className="space-y-2 py-1">
                       <p className="font-bold text-sm text-center">Apna review do ⭐</p>
@@ -214,6 +244,16 @@ export default function OrdersPage() {
                         ))}
                       </div>
                       <input value={reviewText[o.id] || ""} onChange={(e) => setReviewText((p) => ({...p, [o.id]: e.target.value}))} placeholder="Kuch kehna ho to likho (optional)" className="w-full border rounded-xl p-2 text-sm" />
+                      <div>
+                        <label className="text-xs font-bold text-gray-600">📸 Photo lagao (optional)</label>
+                        <input type="file" accept="image/*" onChange={(e) => pickPhoto(o.id, e.target.files?.[0] || null)} className="w-full text-xs mt-1" />
+                        {photoPreview[o.id] && (
+                          <div className="relative inline-block mt-1.5">
+                            <img src={photoPreview[o.id]} alt="preview" className="w-20 h-20 rounded-xl object-cover border border-amber-200" />
+                            <button onClick={() => pickPhoto(o.id, null)} className="absolute -top-2 -right-2 bg-white rounded-full shadow text-sm leading-none w-6 h-6">❌</button>
+                          </div>
+                        )}
+                      </div>
                       <button onClick={() => submitReview(o.id)} disabled={!(stars[o.id] > 0) || savingReview} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50">{savingReview? "Ruko..." : "Review Bhejo"}</button>
                     </div>
                   )}
