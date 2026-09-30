@@ -93,9 +93,9 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
   };
   const stars = rating && rating.count > 0? Math.round(rating.avg) : 0;
   return (
-    <div className="bg-white rounded-2xl shadow p-3 border border-amber-100 flex flex-col">
+    <div className="bg-white rounded-2xl shadow-sm p-3 border border-amber-100 flex flex-col">
       <img src={p.img} alt={p.nameHi} className="w-full aspect-square object-cover rounded-xl mb-2" />
-      <h3 className="font-bold text-sm">{lang === "hi"? p.nameHi : p.nameEn}</h3>
+      <h3 className="font-bold text-sm leading-snug">{lang === "hi"? p.nameHi : p.nameEn}</h3>
       {stars > 0? (
         <p className="text-xs mt-0.5"><span className="text-amber-500 font-bold">{"★".repeat(stars)}{"☆".repeat(5 - stars)}</span><span className="text-gray-500"> {rating!.avg.toFixed(1)} ({rating!.count})</span></p>
       ) : (
@@ -106,8 +106,11 @@ function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: nu
           <button key={s.kg} onClick={() => setSel(i)} className={"text-[11px] px-2 py-0.5 rounded-full border font-semibold " + (i === sel? "bg-orange-500 text-white border-orange-500" : "border-amber-300 text-amber-700")}>{s.kg}kg</button>
         ))}
       </div>
-      <p className="mt-1.5 text-lg font-bold text-green-700">₹{size.price} <span className="text-[11px] font-semibold text-gray-500">{lang === "hi"? "ऑफर प्राइस" : "Offer Price"}</span></p>
-      <button onClick={addToCart} className="mt-2 w-full text-sm bg-orange-500 text-white rounded-xl py-2 font-bold">Add</button>
+      <div className="mt-2 flex items-center gap-1.5">
+        <p className="text-xl font-extrabold text-green-700">₹{size.price}</p>
+        <span className="text-[10px] font-bold text-orange-600 bg-orange-100 rounded-full px-1.5 py-0.5">{lang === "hi"? "ऑफर" : "Offer"}</span>
+      </div>
+      <button onClick={addToCart} className="mt-2 w-full text-sm bg-orange-500 text-white rounded-xl py-2 font-bold active:scale-[0.98] transition">{lang === "hi"? "जोड़ें" : "Add"}</button>
     </div>
   );
 }
@@ -180,12 +183,20 @@ export default function Home() {
       <HeroSlider />
       <div>
         <h2 className="text-base font-bold mb-2">{lang === "hi"? "तेल के फायदे" : "Oil Benefits"}</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {FAYDE.map((b) => (<div key={b.title} className="bg-white rounded-2xl p-4 shadow border border-amber-100"><div className="text-3xl mb-1">{b.icon}</div><h3 className="font-bold text-sm">{b.title}</h3><p className="text-[11px] text-gray-500 mt-0.5">{b.sub}</p></div>))}
+        <div className="grid grid-cols-2 gap-2.5">
+          {FAYDE.map((b) => (
+            <div key={b.title} className="bg-white rounded-2xl p-3 shadow-sm border border-amber-100 flex items-center gap-2.5">
+              <div className="text-2xl shrink-0">{b.icon}</div>
+              <div className="min-w-0">
+                <h3 className="font-bold text-xs leading-snug">{b.title}</h3>
+                <p className="text-[10px] text-gray-500 leading-snug">{b.sub}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       <div>
-        <h2 className="text-base font-bold mb-2">Shop Products</h2>
+        <h2 className="text-base font-bold mb-2">🛍️ {lang === "hi"? "हमारे उत्पाद" : "Shop Products"}</h2>
         <div className="grid grid-cols-2 gap-3">{products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}</div>
       </div>
       <RecommendedForYou products={products} ratings={ratings} />
