@@ -12,6 +12,24 @@ const TRACK_STEPS = [
   { key: "in_transit", icon: "🛣️", hi: "रास्ते में है", en: "In Transit" },
   { key: "delivered", icon: "✅", hi: "पहुंच गया", en: "Delivered" },
 ];
+// product photo map (feedback page wala pattern)
+const IMG_MAP: Record<string, string> = {
+  mustard: "/products/mustard.webp",
+  sesame: "/products/sesame.webp",
+  gud: "/products/gud.webp",
+  cheeni: "/products/cheeni.webp",
+  peanut: "/products/mustard.webp",
+};
+const NORM = (t: string) => {
+  const s = (t || "").toLowerCase();
+  if (s.includes("mustard") || s.includes("sarso") || s.includes("sarson") || s.includes("peanut")) return "mustard";
+  if (s.includes("gud")) return "gud";
+  if (s.includes("cheeni") || s.includes("chini")) return "cheeni";
+  if (s.includes("sesame") || s.includes("til")) return "sesame";
+  return s.trim();
+};
+const FALLBACK_IMG = "/products/mustard.webp";
+
 export default function OrdersPage() {
   const { lang } = useLang();
   const [customer, setCustomer] = useState<any>(null);
@@ -22,6 +40,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [items, setItems] = useState<Record<string, any[]>>({});
+  const [prodImgs, setProdImgs] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
   const [stars, setStars] = useState<Record<string, number>>({});
   const [reviewText, setReviewText] = useState<Record<string, string>>({});
@@ -33,8 +52,15 @@ export default function OrdersPage() {
   const [trackEvents, setTrackEvents] = useState<Record<string, any[]>>({});
   useEffect(() => {
     const s = localStorage.getItem("akg_customer");
-    if (s) { try { const c = JSON.parse(s); setCustomer(c); if(c.id) loadOrders(c.id); } catch {} }
+    if (s) { try { const c = JSON.parse(s); setCustomer(c); if (c.id) loadOrders(c.id); } catch {} }
+    loadProdImgs();
   }, []);
+  const loadProdImgs = async () => {
+    const { data } = await supabase.from("products").select("id, oil_type");
+    const m: Record<string, string> = {};
+    (data || []).forEach((p: any) => { m[p.id] = IMG_MAP[NORM(p.oil_type)] || FALLBACK_IMG; });
+    setProdImgs(m);
+  };
   const loadOrders = async (cid: string) => {
     const { data } = await supabase.from("orders").select("id, order_no, total_amount, order_status, created_at, shipping_address").eq("customer_id", cid).order("created_at", { ascending: false });
     if (data) setOrders(data);
@@ -160,6 +186,7 @@ export default function OrdersPage() {
     }
   };
   const S = lang === "hi"? STATUS_HI : STATUS_EN;
+  const dateLoc = lang === "hi"? "hi-IN" : "en-IN";
   if (!customer) {
     return (
       <div className="px-4 py-8 space-y-4">
@@ -199,12 +226,17 @@ export default function OrdersPage() {
           <div key={o.id} className="bg-white rounded-2xl p-3 shadow border border-amber-100">
             <button onClick={() => toggleItems(o.id)} className="w-full text-left">
               <div className="flex justify-between items-center"><p className="font-bold text-sm">{o.order_no}</p><span className={`text-xs font-bold px-2 py-0.5 rounded-full ${o.order_status === "delivered"? "bg-green-100 text-green-700" : o.order_status === "cancelled"? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>{S[o.order_status] || o.order_status}</span></div>
-              <p className="text-xs text-gray-500 mt-0.5">{new Date(o.created_at).toLocaleDateString("en-IN")} • ₹{o.total_amount}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{new Date(o.created_at).toLocaleDateString(dateLoc)} • ₹{o.total_amount}</p>
             </button>
-            {o.order_status!== "cancelled" && (<div className="flex items-center mt-2 mb-1">{STEPS.map((s, i) => (<div key={s} className="flex-1 flex items-center"><div className={`w-5 h-5 rounded-full flex items-center justify-center text- font-bold ${i <= stepIdx? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}>{i <= stepIdx? "✓" : i + 1}</div>{i < STEPS.length - 1 && <div className={`flex-1 h-1 mx-0.5 rounded ${i < stepIdx? "bg-green-500" : "bg-gray-200"}`} />}</div>))}</div>)}
+            {o.order_status!== "cancelled" && (<div className="flex items-center mt-2 mb-1">{STEPS.map((s, i) => (<div key={s} className="flex-1 flex items-center"><div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${i <= stepIdx? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"}`}>{i <= stepIdx? "✓" : i + 1}</div>{i < STEPS.length - 1 && <div className={`flex-1 h-1 mx-0.5 rounded ${i < stepIdx? "bg-green-500" : "bg-gray-200"}`} />}</div>))}</div>)}
             {openId === o.id && (
               <div className="mt-2 pt-2 border-t border-amber-100 space-y-1">
-                {(items[o.id] || []).map((it, j) => (<p key={j} className="text-xs text-gray-600">{it.product_name} ({it.pack_size_kg}kg) × {it.qty} — ₹{it.price * it.qty}</p>))}
+                {(items[o.id] || []).map((it, j) => (
+                  <div key={j} className="flex items-center gap-2 py-0.5">
+                    <img src={prodImgs[it.product_id] || FALLBACK_IMG} alt="" className="w-10 h-10 rounded-lg object-cover border border-amber-200 shrink-0" />
+                    <p className="text-xs text-gray-600">{it.product_name} ({it.pack_size_kg}kg) × {it.qty} — ₹{it.price * it.qty}</p>
+                  </div>
+                ))}
                 <p className="text-xs text-gray-500">📍 {o.shipping_address}</p>
                 <button onClick={() => toggleTracking(o.id)} className="w-full text-xs font-bold text-orange-600 py-1.5">
                   📍 {lang === "hi"? "Tracking Dekho" : "View Tracking"} {trackOpen[o.id]? "▲" : "▼"}
@@ -222,7 +254,7 @@ export default function OrdersPage() {
                           <div className="pb-3">
                             <p className={`font-bold text-xs ${i <= trackIdx? "text-green-700" : "text-gray-400"}`}>{lang === "hi"? s.hi : s.en}</p>
                             {evs.map((e) => (
-                              <p key={e.id} className="text- text-gray-500">{new Date(e.created_at).toLocaleString("en-IN")}{e.note? ` • ${e.note}` : ""}</p>
+                              <p key={e.id} className="text-[11px] text-gray-500">{new Date(e.created_at).toLocaleString(dateLoc)}{e.note? ` • ${e.note}` : ""}</p>
                             ))}
                           </div>
                         </div>
@@ -232,21 +264,33 @@ export default function OrdersPage() {
                 )}
                 <div className="pt-2 mt-1 border-t border-amber-100">
                   {reviewed[o.id]? (
-                    <p className="text-center text-green-600 font-bold text-sm py-1">🙏 Review ke liye dhanyavaad!</p>
+                    <p className="text-center text-green-600 font-bold text-sm py-1">{lang === "hi"? "🙏 Review ke liye dhanyavaad!" : "🙏 Thanks for the review!"}</p>
                   ) : o.order_status!== "delivered"? (
-                    <p className="text-center text-xs text-gray-400 py-1">📦 Product deliver hone ke baad review de sakte ho</p>
+                    <p className="text-center text-xs text-gray-400 py-1">{lang === "hi"? "📦 Product deliver hone ke baad review de sakte ho" : "📦 You can review after delivery"}</p>
                   ) : (
-                    <div className="space-y-2 py-1">
-                      <p className="font-bold text-sm text-center">Apna review do ⭐</p>
-                      <div className="flex justify-center gap-1">
-                        {[1,2,3,4,5].map((s) => (
-                          <button key={s} onClick={() => setStars((p) => ({...p, [o.id]: s}))} className="text-3xl">{s <= (stars[o.id] || 0)? "⭐" : "☆"}</button>
-                        ))}
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 space-y-2.5">
+                      <p className="font-bold text-sm text-center">{lang === "hi"? "Apna review do ⭐" : "Write your review ⭐"}</p>
+                      {(items[o.id] || []).length > 0 && (
+                        <div className="flex justify-center gap-2 flex-wrap">
+                          {(items[o.id] || []).map((it, j) => (
+                            <img key={j} src={prodImgs[it.product_id] || FALLBACK_IMG} alt={it.product_name} title={it.product_name} className="w-12 h-12 rounded-xl object-cover border-2 border-amber-200" />
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex justify-center items-center gap-2">
+                        <div className="flex gap-1">
+                          {[1,2,3,4,5].map((s) => (
+                            <button key={s} onClick={() => setStars((p) => ({...p, [o.id]: s}))} className="text-3xl leading-none">{s <= (stars[o.id] || 0)? "⭐" : "☆"}</button>
+                          ))}
+                        </div>
+                        {(stars[o.id] || 0) > 0 && <span className="text-xs font-bold text-amber-600">{stars[o.id]}/5</span>}
                       </div>
-                      <input value={reviewText[o.id] || ""} onChange={(e) => setReviewText((p) => ({...p, [o.id]: e.target.value}))} placeholder="Kuch kehna ho to likho (optional)" className="w-full border rounded-xl p-2 text-sm" />
+                      <input value={reviewText[o.id] || ""} onChange={(e) => setReviewText((p) => ({...p, [o.id]: e.target.value}))} placeholder={lang === "hi"? "Kuch kehna ho to likho (optional)" : "Say something (optional)"} className="w-full border rounded-xl p-2 text-sm bg-white" />
                       <div>
-                        <label className="text-xs font-bold text-gray-600">📸 Photo lagao (optional)</label>
-                        <input type="file" accept="image/*" onChange={(e) => pickPhoto(o.id, e.target.files?.[0] || null)} className="w-full text-xs mt-1" />
+                        <label className="flex items-center justify-center gap-2 w-full border-2 border-dashed border-amber-300 rounded-xl py-2.5 text-sm font-bold text-amber-700 bg-white cursor-pointer">
+                          📸 {lang === "hi"? "Photo Chuno (optional)" : "Choose Photo (optional)"}
+                          <input type="file" accept="image/*" onChange={(e) => pickPhoto(o.id, e.target.files?.[0] || null)} className="hidden" />
+                        </label>
                         {photoPreview[o.id] && (
                           <div className="relative inline-block mt-1.5">
                             <img src={photoPreview[o.id]} alt="preview" className="w-20 h-20 rounded-xl object-cover border border-amber-200" />
@@ -254,7 +298,7 @@ export default function OrdersPage() {
                           </div>
                         )}
                       </div>
-                      <button onClick={() => submitReview(o.id)} disabled={!(stars[o.id] > 0) || savingReview} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50">{savingReview? "Ruko..." : "Review Bhejo"}</button>
+                      <button onClick={() => submitReview(o.id)} disabled={!(stars[o.id] > 0) || savingReview} className="w-full bg-orange-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50">{savingReview? (lang === "hi"? "Ruko..." : "Wait...") : (lang === "hi"? "Review Bhejo" : "Submit Review")}</button>
                     </div>
                   )}
                 </div>
