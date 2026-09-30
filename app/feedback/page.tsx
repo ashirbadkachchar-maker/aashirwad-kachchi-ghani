@@ -3,6 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useLang } from "../components/SiteChrome";
 
+// 👇 site ke orange header ki height — agar sticky block header ke neeche/upar galat chipke to sirf ye value badlo (jaise "60px" ya "72px")
+const HEADER_H = "64px";
+
 const PROD_NAME_HI: Record<string, string> = {
   mustard: "सरसों का तेल",
   sesame: "तिल का तेल",
@@ -61,11 +64,11 @@ export default function FeedbackPage() {
   useEffect(() => {
     const load = async () => {
       const { data: fb } = await supabase
-      .from("feedback")
-      .select("id, customer_name, rating, review, product_id, created_at, photo_url")
-      .eq("is_public", true)
-      .order("created_at", { ascending: false })
-      .limit(100);
+     .from("feedback")
+     .select("id, customer_name, rating, review, product_id, created_at, photo_url")
+     .eq("is_public", true)
+     .order("created_at", { ascending: false })
+     .limit(100);
 
       const { data: prods } = await supabase.from("products").select("id, oil_type, pack_size_kg");
       const map: Record<string, { baseId: string; img: string; pack: any }> = {};
@@ -122,8 +125,8 @@ export default function FeedbackPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* sticky filter block — scroll me nahi chhupega */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-3 pb-2.5 border-b border-amber-100 shadow-sm space-y-2.5">
+      {/* sticky filter block — site header ke neeche chipkega, kuch nahi katega */}
+      <div className="sticky z-10 bg-white/95 backdrop-blur px-4 pt-3 pb-2.5 border-b border-amber-100 shadow-sm space-y-2.5" style={{ top: HEADER_H }}>
         <h2 className="text-base font-bold">💬 {lang === "hi"? "Sabhi Customer Reviews" : "All Customer Reviews"} ({allReviews.length})</h2>
         <div className="flex gap-1 overflow-x-auto pb-0.5">
           <button onClick={() => setProdFilter("")} className="flex flex-col items-center gap-0.5 shrink-0 w-16">
@@ -152,20 +155,18 @@ export default function FeedbackPage() {
             {sortBy === "new"? (lang === "hi"? "🆕 Naye pehle" : "🆕 Newest first") : (lang === "hi"? "👍 Helpful pehle" : "👍 Most helpful")}
           </button>
         </div>
+        {/* rating strip — fixed tab ke saath judi hui */}
+        {allReviews.length > 0 && (
+          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5">
+            <p className="text-lg font-bold text-amber-600">{avg.toFixed(1)}</p>
+            <p className="text-amber-500 text-sm font-bold leading-none">{"★".repeat(Math.round(avg))}{"☆".repeat(5 - Math.round(avg))}</p>
+            <p className="text-[11px] text-gray-500 truncate">{prodFilter? `${PN[prodFilter]} · ` : ""}{prodFiltered.length} {lang === "hi"? "verified reviews par based" : "verified reviews"}</p>
+          </div>
+        )}
       </div>
 
       {/* scrolling content */}
       <div className="px-4 py-4 space-y-3">
-        {prodFiltered.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2 flex items-center gap-2.5">
-            <p className="text-2xl font-bold text-amber-600">{avg.toFixed(1)}</p>
-            <div>
-              <p className="text-amber-500 font-bold">{"★".repeat(Math.round(avg))}{"☆".repeat(5 - Math.round(avg))}</p>
-              <p className="text-[11px] text-gray-500">{prodFilter? `${PN[prodFilter]} — ` : ""}{prodFiltered.length} {lang === "hi"? "verified reviews par based" : "verified reviews"}</p>
-            </div>
-          </div>
-        )}
-
         <p className="text-xs text-gray-500">{lang === "hi"? "Product par click karke uske reviews dekho!" : "Click a product to see its reviews!"}</p>
 
         <div className="space-y-3">
@@ -201,9 +202,9 @@ export default function FeedbackPage() {
           {shown.length === 0 && (
             <p className="text-sm text-gray-500 text-center py-10">
               {allReviews.length === 0
-              ? (lang === "hi"? "Abhi koi review nahi — pehla review aap de sakte ho!" : "No reviews yet — be the first to review!")
+             ? (lang === "hi"? "Abhi koi review nahi — pehla review aap de sakte ho!" : "No reviews yet — be the first to review!")
                 : prodFilter && prodFiltered.length === 0
-                ? (lang === "hi"? "Is product ka abhi koi review nahi hai." : "No reviews for this product yet.")
+               ? (lang === "hi"? "Is product ka abhi koi review nahi hai." : "No reviews for this product yet.")
                   : (lang === "hi"? "Is rating ka koi review nahi mila." : "No reviews found with this rating.")}
             </p>
           )}
