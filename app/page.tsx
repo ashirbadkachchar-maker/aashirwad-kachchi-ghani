@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useLang } from "./components/SiteChrome";
 type SizeOpt = { kg: number; price: number };
@@ -34,6 +34,48 @@ function getBaseId(product_id: string): string {
     if (id === base || id.startsWith(base + "-")) return base;
   }
   return "";
+}
+// --- 4 auto-sliding tabs ---
+const SLIDES = [
+  { id: "mustard", img: "/products/mustard.webp", titleHi: "सरसों का तेल", titleEn: "Mustard Oil", subHi: "शुद्ध कच्ची घानी • कोल्हू में पिसाई", subEn: "Pure kachchi ghani • Traditionally pressed" },
+  { id: "sesame", img: "/products/sesame.webp", titleHi: "तिल का तेल", titleEn: "Sesame Oil", subHi: "100% शुद्ध • कोई केमिकल नहीं", subEn: "100% pure • No chemicals" },
+  { id: "gud", img: "/products/gud.webp", titleHi: "तिल गुड़ की कच्चर", titleEn: "Sesame Jaggery Chikki", subHi: "गुड़ की मिठास • सेहत का खजाना", subEn: "Jaggery sweetness • Healthy treat" },
+  { id: "cheeni", img: "/products/cheeni.webp", titleHi: "तिल चीनी की कच्चर", titleEn: "Sesame Sugar Chikki", subHi: "कुरकुरी • स्वादिष्ट", subEn: "Crispy • Delicious" },
+];
+function HeroSlider() {
+  const { lang } = useLang();
+  const [idx, setIdx] = useState(0);
+  const touchX = useRef<number | null>(null);
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % SLIDES.length), 3500);
+    return () => clearInterval(t);
+  }, []);
+  const s = SLIDES[idx];
+  return (
+    <div className="relative rounded-3xl overflow-hidden shadow"
+      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        if (touchX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchX.current;
+        if (dx < -40) setIdx((i) => (i + 1) % SLIDES.length);
+        else if (dx > 40) setIdx((i) => (i - 1 + SLIDES.length) % SLIDES.length);
+        touchX.current = null;
+      }}>
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-5 text-white flex items-center gap-4 min-h-[132px]">
+        <div className="flex-1">
+          <h2 className="text-xl font-bold leading-snug">{lang === "hi"? s.titleHi : s.titleEn}</h2>
+          <p className="text-xs mt-1 opacity-95">{lang === "hi"? s.subHi : s.subEn}</p>
+        </div>
+        <img key={s.id} src={s.img} alt={s.titleHi} className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
+      </div>
+      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+        {SLIDES.map((sl, i) => (
+          <button key={sl.id} onClick={() => setIdx(i)} aria-label={"Slide " + (i + 1)}
+            className={"h-2 rounded-full transition-all " + (i === idx? "w-6 bg-white" : "w-2 bg-white/50")} />
+        ))}
+      </div>
+    </div>
+  );
 }
 function ProductCard({ p, rating }: { p: Prod; rating?: { avg: number; count: number } }) {
   const { lang } = useLang();
@@ -135,13 +177,7 @@ export default function Home() {
     : [{ icon: "❤️", title: "100% Pure & Natural", sub: "No preservatives • Cold pressed" }, { icon: "🌿", title: "Rich in Omega-3", sub: "Good for heart & immunity" }];
   return (
     <div className="px-4 py-4 space-y-5">
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-3xl p-5 text-white flex items-center gap-4 shadow">
-        <div className="flex-1">
-          <h2 className="text-xl font-bold leading-snug">{lang === "hi"? "शुद्ध कच्ची घानी तेल - भाटी प्रोडक्ट्स" : "Pure Kachchi Ghani Oil - Bhati Products"}</h2>
-          <p className="text-xs mt-1 opacity-95">{lang === "hi"? "बिना केमिकल, कोल्हू में पिसाई | जोधपुर रोड, भोपालगढ़" : "No chemicals, traditionally pressed | Jodhpur Road, Bhopalgarh"}</p>
-        </div>
-        <img src="/products/sesame.webp" alt="oil" className="w-24 h-24 object-cover rounded-2xl bg-white/20" />
-      </div>
+      <HeroSlider />
       <div>
         <h2 className="text-base font-bold mb-2">{lang === "hi"? "तेल के फायदे" : "Oil Benefits"}</h2>
         <div className="grid grid-cols-2 gap-3">
@@ -153,7 +189,10 @@ export default function Home() {
         <div className="grid grid-cols-2 gap-3">{products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}</div>
       </div>
       <RecommendedForYou products={products} ratings={ratings} />
-      <footer className="text-center text-xs text-gray-400 pb-4">आशीर्वाद कच्चर • {lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</footer>
+      <footer className="text-center text-xs text-gray-400 pb-4">
+        <a href="/admin" className="font-bold text-amber-600 text-sm">आशीर्वाद कच्चर</a>
+        <p className="mt-0.5">{lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</p>
+      </footer>
     </div>
   );
 }
