@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import CartSuggest from "../components/CartSuggest";
 
 type CartItem = { product_id: string; name: string; pack_size_kg: number; price: number; qty: number; };
 
@@ -31,6 +32,13 @@ export default function Cart() {
     setCart(JSON.parse(localStorage.getItem("akg_cart") || "[]"));
     const s = localStorage.getItem("akg_customer");
     if (s) { try { const c = JSON.parse(s); setMobile(c.mobile || ""); } catch {} }
+  }, []);
+  // suggestion se Add dabane par cart list turant refresh ho
+  useEffect(() => {
+    const refresh = () => { try { setCart(JSON.parse(localStorage.getItem("akg_cart") || "[]")); } catch {} };
+    window.addEventListener("akg-cart-updated", refresh);
+    window.addEventListener("storage", refresh);
+    return () => { window.removeEventListener("akg-cart-updated", refresh); window.removeEventListener("storage", refresh); };
   }, []);
 
   const authApi = async (body: any) => {
@@ -73,7 +81,7 @@ export default function Cart() {
     setCustMsg("✅ Password sahi! Details bhar diye hain.");
   };
 
-  const save = (c: CartItem[]) => { setCart(c); localStorage.setItem("akg_cart", JSON.stringify(c)); };
+  const save = (c: CartItem[]) => { setCart(c); localStorage.setItem("akg_cart", JSON.stringify(c)); window.dispatchEvent(new Event("akg-cart-updated")); };
   const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
   // Payment verify hone KE BAAD hi order Supabase me save hoga
@@ -192,6 +200,7 @@ export default function Cart() {
   return (
     <div className="px-4 py-4 space-y-4">
       <h2 className="text-lg font-bold">🛒 Mera Cart</h2>
+      <CartSuggest />
       {cart.length === 0 && <p className="text-gray-500 text-sm">Cart khaali hai. Home se tel select karo!</p>}
       {cart.map((i, idx) => (
         <div key={idx} className="bg-white rounded-2xl p-3 shadow border border-amber-100 flex justify-between items-center">
