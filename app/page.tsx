@@ -169,8 +169,8 @@ export default function Home() {
         <div className="grid grid-cols-2 gap-3">{products.map((p) => (<ProductCard key={p.id} p={p} rating={ratings[p.id]} />))}</div>
       </div>
       <footer className="text-center pb-3">
-        <a href="/admin" className="font-bold text-amber-600 text-xs">आशीर्वाद कच्चर</a>
-        <p className="text-[10px] text-gray-400">{lang === "hi"? "शुद्ध तेल, हर घर" : "Pure Oil, Every Home"}</p>
+        <a href="/admin" className="font-bold text-amber-600 text-xs">*आशीर्वाद कच्चर*</a>
+        <p className="text-[10px] text-gray-400">{lang === "hi"? "शुद्ध तेल, हर घर, भाटी प्रॉडक्ट्स, जोधपुर रोड, भोपालगढ़" : "Pure Oil, Every Home, Bhati Products, Jodhpur Road Bhopalgarh"}</p>
         <p className="text-[10px] text-gray-400 mt-0.5">app developed by @D&D Pvt. Ltd. Jodhpur</p>
       </footer>
     </div>
